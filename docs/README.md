@@ -13,7 +13,7 @@
 
 | 문서 | 설명 |
 |------|------|
-| [게임 진행](./game-system/game-process.md) | 턴 구조, 페이즈, 액션 슬롯, 난이도, 카테고리 |
+| [게임 진행](./game-system/game-process.md) | 턴 구조, 페이즈, 행동 피로도, 쿨타임, 난이도 |
 | [경제 시스템](./game-system/game-economy.md) | 수입/지출 계산, 재무 건전성, 런웨이 |
 | [프로젝트 시스템](./game-system/game-project.md) | 외주/자체서비스 진행, 업무 배분, 기술 부채 |
 | [케미스트리 시스템](./game-system/game-chemistry.md) | 팀 케미, 개인 간 케미, 문화 태그 |

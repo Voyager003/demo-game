@@ -8,7 +8,7 @@
 
 | 문서 | 설명 | 핵심 키워드 |
 |------|------|------------|
-| [게임 진행](./game-process.md) | 턴 구조, 페이즈 순서, 액션 슬롯, 난이도 | Turn, Phase, Action Slot |
+| [게임 진행](./game-process.md) | 턴 구조, 페이즈 순서, 행동 피로도, 쿨타임, 난이도 | Turn, Phase, Fatigue, Cooldown |
 | [경제 시스템](./game-economy.md) | 수입/지출 흐름, 재무 건전성, 런웨이 | Revenue, Cost, Runway |
 | [프로젝트 시스템](./game-project.md) | 외주/자체서비스 진행, 업무 배분, 기술 부채 | Project, MAU, TechDebt |
 | [케미스트리 시스템](./game-chemistry.md) | 팀 케미, 개인 간 케미, 문화 태그 | Chemistry, CultureTag |
