@@ -13,7 +13,7 @@
 
 | 문서 | 설명 |
 |------|------|
-| [게임 진행](./game-system/game-process.md) | 턴 구조, 페이즈, 행동 피로도, 쿨타임, 난이도 |
+| [게임 진행](./game-system/game-process.md) | 턴 구조, 페이즈, 행동 피로도, 쿨타임, 시작 시나리오, 난이도 수정자 |
 | [경제 시스템](./game-system/game-economy.md) | 수입/지출 계산, 재무 건전성, 런웨이 |
 | [프로젝트 시스템](./game-system/game-project.md) | 외주/자체서비스 진행, 업무 배분, 기술 부채 |
 | [케미스트리 시스템](./game-system/game-chemistry.md) | 팀 케미, 개인 간 케미, 문화 태그 |
@@ -37,6 +37,10 @@
 | [지출](./game-domain/cost.md) | 연봉, 운영비, 복지, 마케팅 |
 | [이벤트 카탈로그](./game-domain/event-catalog.md) | 시장 트렌드, 법규제, 랜덤 이벤트 목록 |
 | [기술](./game-domain/tech.md) | 기술 부채 레벨, 리팩토링 프로젝트 |
+
+### [MVP 코어 루프](./mvp-core-loop.md)
+
+최소한의 게임 플레이 가능 범위 정의 — 구현 우선순위와 밸런스 기준
 
 ---
 
