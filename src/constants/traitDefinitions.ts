@@ -1,0 +1,228 @@
+import type { TraitKey, TraitCategory } from '../types/trait';
+
+export interface TraitDefinition {
+  key: TraitKey;
+  category: TraitCategory;
+  name: string;
+  hint: string;        // 이력서 단계 힌트
+  categoryHint: string; // 수습 4턴 힌트
+  specificHint: string; // 수습 8턴 힌트
+  description: string;  // 완전 공개 설명
+}
+
+export const TRAIT_DEFINITIONS: Record<TraitKey, TraitDefinition> = {
+  // ─── 업무 스타일 ───
+  sprinter: {
+    key: 'sprinter',
+    category: 'workStyle',
+    name: '스프린터',
+    hint: '단기 집중형으로 보임',
+    categoryHint: '[업무 스타일] 단기에 강한 패턴',
+    specificHint: '초반 생산성이 높지만 후반에 떨어지는 경향',
+    description: '프로젝트 초반 생산성 ×1.2. 후반 70% 이후 ×0.8.',
+  },
+  marathoner: {
+    key: 'marathoner',
+    category: 'workStyle',
+    name: '마라토너',
+    hint: '꾸준한 업무 스타일',
+    categoryHint: '[업무 스타일] 장기 지속형',
+    specificHint: '느리게 시작하지만 안정적으로 유지',
+    description: '프로젝트 초반 생산성 ×0.85. 중반 이후 ×1.1.',
+  },
+  overtimeMaster: {
+    key: 'overtimeMaster',
+    category: 'workStyle',
+    name: '야근장인',
+    hint: '강한 체력을 가진 것 같음',
+    categoryHint: '[업무 스타일] 야근 내성',
+    specificHint: '야근 시 패널티 없음, 체력 소모 2배',
+    description: '야근 지시 시 HP 패널티 없음. 단, 체력 소모 2배.',
+  },
+  workLifeBalance: {
+    key: 'workLifeBalance',
+    category: 'workStyle',
+    name: '워라밸주의자',
+    hint: '개인 시간을 중시하는 것 같음',
+    categoryHint: '[업무 스타일] 워라밸 중시',
+    specificHint: '야근 거부, 정규 근무 보장 시 충성도 상승',
+    description: '야근 지시 시 참여 거부 (기여도 0). 정규 근무 보장 시 충성도 +2/턴.',
+  },
+  speedFirst: {
+    key: 'speedFirst',
+    category: 'workStyle',
+    name: '속도제일주의',
+    hint: '빠른 결과물을 내는 경향',
+    categoryHint: '[업무 스타일] 속도 우선',
+    specificHint: 'CodingSpeed +2, 버그 발생 확률 상승',
+    description: 'CodingSpeed 효과 +2. 클라이언트 만족도 계산 시 CodeQuality -2 페널티.',
+  },
+  perfectionist: {
+    key: 'perfectionist',
+    category: 'workStyle',
+    name: '완벽주의자',
+    hint: '세심한 작업 방식',
+    categoryHint: '[업무 스타일] 품질 우선',
+    specificHint: '완료 시간이 길어지지만 품질이 높음',
+    description: '진척 기여도 ×0.9. 납품 시 clientSatisfaction +10 보너스.',
+  },
+  deadlineMiracle: {
+    key: 'deadlineMiracle',
+    category: 'workStyle',
+    name: '마감의 기적',
+    hint: '압박 상황에서 능력 발휘',
+    categoryHint: '[업무 스타일] 마감 집중형',
+    specificHint: '마감 2턴 전 생산성 폭발',
+    description: '마감 2턴 전까지 기여도 ×0.6. 마지막 2턴 ×1.5.',
+  },
+
+  // ─── 사회성 ───
+  recreationMaster: {
+    key: 'recreationMaster',
+    category: 'social',
+    name: '회식마스터',
+    hint: '사교적인 성격',
+    categoryHint: '[사회성] 팀 이벤트 증폭형',
+    specificHint: '팀 이벤트 케미 보너스 증가, 집중 업무 약간 감소',
+    description: '팀 회식/이벤트 케미 효과 +10%. 집중 업무 생산성 -5%.',
+  },
+  soloLuncher: {
+    key: 'soloLuncher',
+    category: 'social',
+    name: '혼밥러',
+    hint: '독립적인 업무 스타일',
+    categoryHint: '[사회성] 독립형',
+    specificHint: '개인 멘탈 안정적, 케미 기여 낮음',
+    description: '개인 멘탈 패시브 안정. 팀 케미 기여 최소화.',
+  },
+  gatheringInitiator: {
+    key: 'gatheringInitiator',
+    category: 'social',
+    name: '모임추진자',
+    hint: '팀 활동을 주도하는 경향',
+    categoryHint: '[사회성] 비공식 모임 주도',
+    specificHint: '비공식 모임 제안으로 케미 변동 발생',
+    description: '매 4턴마다 비공식 모임 이벤트 발생. 케미 ±random(3~8).',
+  },
+  gossiper: {
+    key: 'gossiper',
+    category: 'social',
+    name: '험담꾼',
+    hint: '주변 이야기를 많이 함',
+    categoryHint: '[사회성] 부정적 영향형',
+    specificHint: '특정 동료 케미 하락, 발각 시 명성 하락',
+    description: '랜덤 동료 개인 케미 -3/턴. 발각 이벤트 시 명성 -10.',
+  },
+  caringLeader: {
+    key: 'caringLeader',
+    category: 'social',
+    name: '배려리더',
+    hint: '동료를 잘 챙기는 스타일',
+    categoryHint: '[사회성] 멘탈 케어형',
+    specificHint: '인접 동료 멘탈 회복, 본인 생산성 소폭 감소',
+    description: '동료 멘탈 +1/턴 (최대 3명). 본인 생산성 -5%.',
+  },
+  cynic: {
+    key: 'cynic',
+    category: 'social',
+    name: '냉소주의자',
+    hint: '현실적인 시각을 가진 것 같음',
+    categoryHint: '[사회성] 냉소형',
+    specificHint: '높은 업무 능력, 신규 입사자 온보딩 방해',
+    description: '본인 생산성 보너스 없음. 신규 입사자 온보딩 효율 -20%.',
+  },
+  leaderComplex: {
+    key: 'leaderComplex',
+    category: 'social',
+    name: '리더콤플렉스',
+    hint: '주도권 욕구가 강해 보임',
+    categoryHint: '[사회성] 지배욕형',
+    specificHint: '비리더 포지션에서 팀 케미 하락',
+    description: '리더가 아닐 때 팀 케미 -2/턴. 리더일 때 팀 성장 -1, 하위 업무 거부.',
+  },
+
+  // ─── 성장 ───
+  selfLearner: {
+    key: 'selfLearner',
+    category: 'growth',
+    name: '자기주도학습자',
+    hint: '스스로 성장하는 유형',
+    categoryHint: '[성장] 자기 주도형',
+    specificHint: 'GrowthRate +3, 교육 효과 2배',
+    description: 'GrowthRate 효과 +3. 외부 교육 효과 2배.',
+  },
+  naturalMentor: {
+    key: 'naturalMentor',
+    category: 'growth',
+    name: '타고난멘토',
+    hint: '가르치는 것을 즐기는 것 같음',
+    categoryHint: '[성장] 멘토형',
+    specificHint: '주니어 동료 성장 가속',
+    description: '팀 내 낮은 스탯 직원에게 성장 +2 버프.',
+  },
+  lowCeiling: {
+    key: 'lowCeiling',
+    category: 'growth',
+    name: '한계가있는',
+    hint: '빠른 성장이 눈에 띄지만...',
+    categoryHint: '[성장] 초반 빠름, 후반 한계',
+    specificHint: '초반 성장은 빠르지만 스탯 상한이 낮음',
+    description: '초반 스탯 성장 ×1.5. 스탯 상한이 일반보다 2 낮음.',
+  },
+  hiddenPotential: {
+    key: 'hiddenPotential',
+    category: 'growth',
+    name: '숨은잠재력',
+    hint: '지금은 평범해 보이지만...',
+    categoryHint: '[성장] 잠재형',
+    specificHint: '낮은 초기 스탯, 빠른 성장 가능성',
+    description: '초기 스탯이 낮지만 성장 속도가 2배. 24턴 후 고평가 직원 수준 도달 가능.',
+  },
+  conferenceAddict: {
+    key: 'conferenceAddict',
+    category: 'growth',
+    name: '컨퍼런스중독자',
+    hint: '외부 활동을 즐기는 것 같음',
+    categoryHint: '[성장] 외부 지식 흡수형',
+    specificHint: '8턴마다 컨퍼런스 참석 요청, 거절 시 충성도 하락',
+    description: '8턴마다 컨퍼런스 요청. 거절 시 충성도 -2. 참석 시 1턴 결근 + 이후 4턴 성장 +1, 명성 +1.',
+  },
+
+  // ─── 리스크 ───
+  jobHopper: {
+    key: 'jobHopper',
+    category: 'risk',
+    name: '잡호퍼',
+    hint: '이직 경력이 많음',
+    categoryHint: '[리스크] 이직 리스크',
+    specificHint: '충성도 기본값 -2, 타 회사 컨택 가능성 높음',
+    description: '충성도 초기값 -2. 매 턴 5% 확률로 타사 오퍼 이벤트 발생.',
+  },
+  startupDreamer: {
+    key: 'startupDreamer',
+    category: 'risk',
+    name: '창업꿈나무',
+    hint: '창업에 관심이 많아 보임',
+    categoryHint: '[리스크] 장기 근속 리스크',
+    specificHint: '48턴 재직 후 퇴사 + 기술 유출 가능성',
+    description: '48턴 재직 시 퇴사. 30% 확률로 경쟁 스타트업 창업 (기술 유출 이벤트).',
+  },
+  burnoutProne: {
+    key: 'burnoutProne',
+    category: 'risk',
+    name: '번아웃주의',
+    hint: '에너지 소모가 빠른 것 같음',
+    categoryHint: '[리스크] 번아웃 위험',
+    specificHint: 'HP가 0이 되면 갑작스러운 병가',
+    description: 'HP가 0이 되면 즉시 병가 이벤트 발생 (1~3턴 이탈).',
+  },
+  sensitiveEgo: {
+    key: 'sensitiveEgo',
+    category: 'risk',
+    name: '유리멘탈',
+    hint: '감수성이 예민해 보임',
+    categoryHint: '[리스크] 공개 피드백 취약',
+    specificHint: '공개 피드백 시 분노 폭발, 1:1은 정상',
+    description: '공개적 부정 피드백 시 충성도 -5, 팀 케미 -5. 1:1 피드백은 정상 처리.',
+  },
+};

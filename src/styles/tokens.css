@@ -1,0 +1,56 @@
+:root {
+  /* 배경/서피스 */
+  --color-bg: #0f1117;
+  --color-surface: #1a1d26;
+  --color-surface-alt: #22273a;
+  --color-border: #2e3349;
+
+  /* 텍스트 */
+  --color-text-primary: #e8eaf0;
+  --color-text-secondary: #8b90a0;
+  --color-text-muted: #555c72;
+
+  /* 강조색 */
+  --color-accent: #4f8ef7;
+  --color-accent-hover: #6ba3ff;
+
+  /* 상태 색상 */
+  --color-positive: #3dd68c;
+  --color-warning: #f4c430;
+  --color-danger: #f05252;
+  --color-neutral: #8b90a0;
+
+  /* 이벤트 레이어 색상 */
+  --color-deterministic: #4f8ef7;   /* 파랑: 결정론적 */
+  --color-probabilistic: #f4c430;   /* 노랑: 확률적 */
+  --color-chain: #f05252;           /* 빨강: 연쇄 */
+
+  /* 스탯 바 */
+  --color-stat-positive: #3dd68c;
+  --color-stat-negative: #f05252;
+  --color-stat-fill: #4f8ef7;
+  --color-stat-bg: #2e3349;
+
+  /* 레이아웃 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* 타이포그래피 */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+
+  /* 트랜지션 */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+}
