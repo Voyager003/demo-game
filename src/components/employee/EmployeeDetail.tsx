@@ -2,7 +2,6 @@ import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
-import { TRAIT_DEFINITIONS } from '../../constants/traitDefinitions';
 
 const ROLE_LABELS: Record<string, string> = {
   developer: '개발자',
@@ -40,14 +39,6 @@ const COMMON_LABELS: Record<string, string> = {
   mental: '멘탈',
   growthRate: '성장속도',
   loyalty: '충성도',
-};
-
-const DISCLOSURE_LABELS: Record<string, string> = {
-  hidden: '???',
-  hinted: '힌트',
-  categoryHint: '카테고리',
-  specificHint: '구체적 힌트',
-  revealed: '공개',
 };
 
 export function EmployeeDetail() {
@@ -110,41 +101,11 @@ export function EmployeeDetail() {
             ))}
           </div>
 
-          {/* 특성 */}
-          <div className="detail-section">
-            <h4>특성</h4>
-            {emp.traits.map((trait, i) => {
-              const def = TRAIT_DEFINITIONS[trait.key];
-              const isRevealed = trait.disclosureState === 'revealed';
-
-              return (
-                <div key={i} className={`trait-item ${trait.disclosureState}`}>
-                  <div className="trait-header">
-                    <span className="trait-name">
-                      {isRevealed ? def.name : `특성 ${i + 1}`}
-                    </span>
-                    <span className="trait-disclosure">
-                      {DISCLOSURE_LABELS[trait.disclosureState]}
-                    </span>
-                  </div>
-                  <p className="trait-desc">
-                    {trait.disclosureState === 'revealed'
-                      ? def.description
-                      : trait.disclosureState === 'specificHint'
-                      ? def.specificHint
-                      : trait.disclosureState === 'categoryHint'
-                      ? def.categoryHint
-                      : def.hint}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         <div className="detail-actions">
           <button className="fire-btn" onClick={handleFire}>
-            해고 (피로 -2, 팀 케미 -10)
+            해고 (피로 -2)
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
-import { calcMonthlyBurn, calcRunway } from '../../engine/economyEngine';
+import { EconomyLedger } from '../../domain';
 
 export function TurnReportModal() {
   const state = useGameStore((s) => s.state);
@@ -11,8 +11,8 @@ export function TurnReportModal() {
   if (!state || state.phase !== 5) return null;
 
   const capitalDelta = prev ? state.capital - prev.capital : 0;
-  const monthlyBurn = calcMonthlyBurn(state.employees);
-  const runway = calcRunway(state.capital, monthlyBurn);
+  const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
+  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyBurn);
 
   const recentLogs = state.eventLog.slice(-8).reverse();
 
@@ -81,15 +81,6 @@ export function TurnReportModal() {
             <div className="report-row">
               <span>인원</span>
               <span>{state.employees.length}명</span>
-            </div>
-            <div className="report-row">
-              <span>팀 케미</span>
-              <span className={
-                state.teamChemistry >= 70 ? 'positive' :
-                state.teamChemistry < 30 ? 'danger' : ''
-              }>
-                {state.teamChemistry}
-              </span>
             </div>
           </div>
 

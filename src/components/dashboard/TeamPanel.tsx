@@ -12,11 +12,6 @@ export function TeamPanel() {
   const { openModal } = useUIStore();
   if (!state) return null;
 
-  const chemistryClass =
-    state.teamChemistry >= 70 ? 'positive' :
-    state.teamChemistry < 30 ? 'danger' :
-    state.teamChemistry < 50 ? 'warning' : '';
-
   return (
     <div className="panel team-panel">
       <h3 className="panel-title">팀 현황</h3>
@@ -25,21 +20,6 @@ export function TeamPanel() {
         <span>총 인원</span>
         <span className="stat-value">{state.employees.length}명</span>
       </div>
-      <div className="stat-row">
-        <span>팀 케미</span>
-        <span className={`stat-value ${chemistryClass}`}>
-          {state.teamChemistry}/100
-        </span>
-      </div>
-
-      {/* 케미 바 */}
-      <div className="chemistry-bar-track">
-        <div
-          className={`chemistry-bar-fill ${chemistryClass}`}
-          style={{ width: `${state.teamChemistry}%` }}
-        />
-      </div>
-
       <div className="divider" />
 
       {state.employees.length === 0 ? (

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
-import { calcProgressPerTurn } from '../../engine/projectEngine';
-import type { Employee, DeveloperStats } from '../../types/employee';
+import { canPerformAction, employeeSpecialistTotal, estimateProjectCompletion } from '../../domain';
+import type { Employee } from '../../types/employee';
 import type { Project } from '../../types/project';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -13,7 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 function getSpecSum(emp: Employee): number {
-  return Object.values(emp.specialistStats).reduce((a, b) => a + b, 0);
+  return employeeSpecialistTotal(emp);
 }
 
 function statValClass(v: number): string {
@@ -31,31 +31,9 @@ interface Estimate {
 function buildEstimate(
   project: Project,
   selectedEmployees: Employee[],
-  teamChemistry: number,
-  ceoTechUnderstanding: number,
-  allEmployees: Employee[],
   currentTurn: number,
 ): Estimate | null {
-  const hasCTO = allEmployees.some(
-    (e) =>
-      e.role === 'developer' &&
-      (e.specialistStats as DeveloperStats | undefined) !== undefined &&
-      Object.values(e.specialistStats).reduce((a, b) => a + b, 0) >= 40,
-  );
-
-  const ppt = calcProgressPerTurn(
-    project,
-    selectedEmployees,
-    teamChemistry,
-    ceoTechUnderstanding,
-    hasCTO,
-  );
-
-  if (ppt <= 0) return null;
-
-  const remaining = 100 - project.progress;
-  const turnsLeft = Math.ceil(remaining / ppt);
-  return { progressPerTurn: ppt, turnsLeft, finishTurn: currentTurn + turnsLeft };
+  return estimateProjectCompletion(project, selectedEmployees, currentTurn);
 }
 
 function EstimateCard({
@@ -73,7 +51,7 @@ function EstimateCard({
   if (!estimate) {
     return (
       <div className="estimate-card no-dev">
-        <span className="estimate-no-dev">⚠ 개발자를 배정해야 진척됩니다</span>
+        <span className="estimate-no-dev">배정 인원이 있어야 진척됩니다</span>
       </div>
     );
   }
@@ -111,14 +89,14 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
   const setProjectAssignments = useGameStore((s) => s.setProjectAssignments);
   const closeModal = useUIStore((s) => s.closeModal);
 
-  const project = state.activeProjects.find((p) => p.id === projectId);
+  const project = state?.activeProjects.find((p) => p.id === projectId);
   const [selectedIds, setSelectedIds] = useState<string[]>(
     project?.assignedEmployeeIds ?? [],
   );
 
-  if (!project) return null;
+  if (!state || !project) return null;
 
-  const canConfirm = state.currentFatigue >= 1 && state.phase === 2;
+  const canConfirm = state.phase === 2 && canPerformAction(state, 'changeAssignment');
 
   const selectedEmployees = state.employees.filter((e) =>
     selectedIds.includes(e.id),
@@ -127,9 +105,6 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
   const estimate = buildEstimate(
     project,
     selectedEmployees,
-    state.teamChemistry,
-    state.ceo.stats.techUnderstanding,
-    state.employees,
     state.turn,
   );
 

@@ -2,7 +2,6 @@ import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
-import { TRAIT_DEFINITIONS } from '../../constants/traitDefinitions';
 import type { Employee } from '../../types/employee';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -58,17 +57,6 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             max={5}
           />
         ))}
-      </div>
-
-      <div className="resume-traits">
-        {candidate.traits.map((trait, i) => {
-          const def = TRAIT_DEFINITIONS[trait.key];
-          return (
-            <div key={i} className={`trait-pill ${trait.disclosureState}`}>
-              {trait.disclosureState === 'revealed' ? def.name : def.hint}
-            </div>
-          );
-        })}
       </div>
 
       <button className="hire-btn" onClick={() => onHire(candidate.id)}>

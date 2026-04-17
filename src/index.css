@@ -274,10 +274,6 @@ button {
 }
 .founding-salary { font-size: var(--font-size-sm); color: var(--color-text-secondary); white-space: nowrap; }
 .founding-stats, .founding-common { display: flex; flex-direction: column; }
-.founding-traits { display: flex; flex-direction: column; gap: var(--space-xs); border-top: 1px solid var(--color-border); padding-top: var(--space-sm); }
-.founding-trait { display: flex; flex-direction: column; gap: 2px; }
-.founding-trait .trait-name { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-accent); }
-.trait-desc-mini { font-size: var(--font-size-xs); color: var(--color-text-muted); line-height: 1.4; }
 .founding-selected-mark {
   position: absolute;
   top: var(--space-sm);
@@ -421,6 +417,26 @@ button {
   letter-spacing: 0.05em;
   margin-bottom: var(--space-md);
 }
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.panel-title-row .panel-title { margin-bottom: 0; }
+.panel-ghost-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.panel-ghost-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
 .stat-row {
   display: flex;
   justify-content: space-between;
@@ -514,6 +530,41 @@ button {
 .log-layer-badge.chain { color: var(--color-chain); }
 .log-turn { font-size: var(--font-size-xs); color: var(--color-text-muted); }
 .log-message { color: var(--color-text-secondary); }
+
+/* ─── 함수 실행 로그 ───────────────────────────────────────── */
+.function-log-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.function-log-entry {
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: rgba(79,142,247,0.06);
+  font-size: var(--font-size-sm);
+}
+.function-log-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: 2px;
+}
+.function-name {
+  color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.function-time {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.function-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
 
 /* ─── 알림 패널 ─────────────────────────────────────────────── */
 .alert-list { display: flex; flex-direction: column; gap: var(--space-xs); }
@@ -661,18 +712,6 @@ button {
 .probation-tag { color: var(--color-warning); }
 .detail-sections { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
 .detail-section h4 { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-sm); text-transform: uppercase; letter-spacing: 0.05em; }
-.trait-item {
-  padding: var(--space-sm);
-  background: var(--color-surface-alt);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  margin-bottom: var(--space-xs);
-}
-.trait-item.revealed { border-color: rgba(79,142,247,0.3); }
-.trait-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.trait-name { font-weight: 600; font-size: var(--font-size-sm); }
-.trait-disclosure { font-size: var(--font-size-xs); color: var(--color-text-muted); }
-.trait-desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .detail-actions { display: flex; justify-content: flex-end; }
 .fire-btn {
   padding: var(--space-xs) var(--space-md);
@@ -702,16 +741,6 @@ button {
 .resume-salary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .resume-stats, .resume-common { display: flex; flex-direction: column; }
 .spec-sum { font-size: var(--font-size-xs); color: var(--color-text-muted); text-align: right; margin-top: 4px; }
-.resume-traits { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.trait-pill {
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-.trait-pill.revealed { color: var(--color-accent); border-color: rgba(79,142,247,0.3); }
 .hire-btn {
   align-self: flex-end;
   padding: var(--space-xs) var(--space-md);

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { canPerformAction } from '../../engine/fatigue';
-import { ACTION_COSTS } from '../../constants/actionCosts';
+import { ACTION_RULES, canPerformAction } from '../../domain';
 import type { ActionType } from '../../types/core';
 
 interface ActionButtonProps {
@@ -13,7 +12,7 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ action, label, description, onClick, disabled }: ActionButtonProps) {
-  const cost = ACTION_COSTS[action];
+  const cost = ACTION_RULES[action];
 
   return (
     <button
@@ -41,8 +40,8 @@ export function ActionMenu() {
   if (!state || state.phase !== 2) return null;
 
   const can = (action: ActionType) => canPerformAction(state, action);
-  const onCooldown = (action: ActionType) => (state.actionCooldowns[action] ?? 0) > 0;
-  const cooldownLeft = (action: ActionType) => state.actionCooldowns[action] ?? 0;
+  const onCooldown = (action: ActionType) => (state.fatigue.cooldowns[action] ?? 0) > 0;
+  const cooldownLeft = (action: ActionType) => state.fatigue.cooldowns[action] ?? 0;
 
   return (
     <div className="action-menu">
@@ -91,7 +90,7 @@ export function ActionMenu() {
             <ActionButton
               action="fireEmployee"
               label="해고"
-              description="직원 해고. 팀 케미 -10. 쿨타임 1턴."
+              description="직원 해고. 쿨타임 1턴."
               onClick={() => {/* 직원 선택 모달에서 처리 */}}
               disabled={!can('fireEmployee') || state.employees.length === 0}
             />

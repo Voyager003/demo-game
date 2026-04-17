@@ -1,14 +1,14 @@
 import { useGameStore } from '../../store/gameStore';
-import { calcRunway, calcMonthlySalaries, calcMonthlyOperatingCosts } from '../../engine/economyEngine';
+import { EconomyLedger } from '../../domain';
 
 export function FinancialPanel() {
   const state = useGameStore((s) => s.state);
   if (!state) return null;
 
-  const salaries = calcMonthlySalaries(state.employees);
-  const operating = calcMonthlyOperatingCosts(state.employees.length);
+  const salaries = EconomyLedger.monthlySalaries(state.employees);
+  const operating = EconomyLedger.monthlyOperatingCosts(state.employees.length);
   const monthlyBurn = salaries + operating;
-  const runway = calcRunway(state.capital, monthlyBurn);
+  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyBurn);
 
   const runwayClass =
     runway === Infinity ? 'positive' :

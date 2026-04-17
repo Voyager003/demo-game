@@ -18,6 +18,12 @@ export type ActionType =
   | 'changeAssignment'
   | 'orderOvertime';
 
+export interface FatigueState {
+  current: number;
+  max: number;
+  cooldowns: Record<ActionType, number>;
+}
+
 export interface GameState {
   turn: number;
   phase: Phase;
@@ -30,8 +36,7 @@ export interface GameState {
   capital: number; // 단위: 만원
 
   // 피로도
-  currentFatigue: number;
-  actionCooldowns: Record<ActionType, number>; // 남은 쿨타임 턴 수
+  fatigue: FatigueState;
 
   // 인재
   employees: Employee[];
@@ -40,12 +45,7 @@ export interface GameState {
   // 프로젝트
   activeProjects: Project[];
   availableProjects: Project[]; // 계약 가능한 프로젝트 목록
-  completedProjectCount: number; // 완료된 프로젝트 수 (B 등급 판정용)
-  consecutiveProfitTurns: number; // 연속 흑자 턴 (B 등급 판정용)
-
-  // 팀 케미 (0~100)
-  teamChemistry: number;
-  pairChemistry: Record<string, Record<string, number>>; // empId → empId → 수치
+  completedProjectCount: number;
 
   // 이벤트
   eventLog: LogEntry[];
@@ -55,7 +55,4 @@ export interface GameState {
   gameStatus: GameStatus;
   crisisGraceTurnsLeft: number;
   endingGrade: EndingGrade | null;
-
-  // B 등급용 수익 추적
-  outsourcingProfitTurns: number; // 외주 수익 흑자였던 턴 수
 }

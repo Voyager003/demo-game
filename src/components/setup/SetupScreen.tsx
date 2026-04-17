@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { DOMAIN_LABELS, DOMAIN_DESCRIPTIONS, DOMAIN_INITIAL_STATS } from '../../constants/domainStats';
-import { calcMaxFatigue } from '../../engine/fatigue';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
-import { generateFoundingCandidates } from '../../engine/hiringEngine';
-import { TRAIT_DEFINITIONS } from '../../constants/traitDefinitions';
+import { EmployeeRoster, maxFatigueForLeadership } from '../../domain';
 import type { Domain } from '../../types/ceo';
 import type { Employee, DeveloperStats } from '../../types/employee';
 
@@ -86,18 +84,6 @@ function FoundingMemberCard({
         ))}
       </div>
 
-      <div className="founding-traits">
-        {candidate.traits.map((trait, i) => {
-          const def = TRAIT_DEFINITIONS[trait.key];
-          return (
-            <div key={i} className="founding-trait">
-              <span className="trait-name">{def.name}</span>
-              <span className="trait-desc-mini">{def.description}</span>
-            </div>
-          );
-        })}
-      </div>
-
       {selected && <div className="founding-selected-mark">선택됨 ✓</div>}
     </button>
   );
@@ -112,16 +98,12 @@ export function SetupScreen() {
 
   // 이력서 3장 — domain이 바뀌어도 step이 'founding-member'로 넘어간 뒤에는 고정
   const candidates = useMemo(
-    () =>
-      generateFoundingCandidates(3, 30, 1).map((c) => ({
-        ...c,
-        traits: c.traits.map((t) => ({ ...t, disclosureState: 'revealed' as const })),
-      })),
+    () => EmployeeRoster.generateFoundingCandidates(3, 30, 1),
     [],
   );
 
   const stats = DOMAIN_INITIAL_STATS[selectedDomain];
-  const maxFatigue = calcMaxFatigue(stats.leadership);
+  const maxFatigue = maxFatigueForLeadership(stats.leadership);
 
   const handleNextStep = () => {
     setStep('founding-member');

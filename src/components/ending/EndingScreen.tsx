@@ -57,10 +57,6 @@ export function EndingScreen() {
             <span>완료 프로젝트</span>
             <span>{state.completedProjectCount}개</span>
           </div>
-          <div className="ending-stat">
-            <span>팀 케미</span>
-            <span>{state.teamChemistry}</span>
-          </div>
         </div>
 
         <div className="ending-actions">

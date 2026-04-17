@@ -6,6 +6,7 @@ import { TurnReportModal } from '../turn/TurnReportModal';
 import { FinancialPanel } from './FinancialPanel';
 import { TeamPanel } from './TeamPanel';
 import { EventLogPanel } from './EventLogPanel';
+import { FunctionLogPanel } from './FunctionLogPanel';
 import { AlertPanel } from './AlertPanel';
 import { ProjectCard } from '../project/ProjectCard';
 import { EventModal } from '../events/EventModal';
@@ -56,6 +57,7 @@ export function Dashboard() {
             <TeamPanel />
             <AlertPanel />
             <EventLogPanel />
+            <FunctionLogPanel />
           </div>
 
           {/* 프로젝트 섹션 */}

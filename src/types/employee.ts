@@ -1,5 +1,3 @@
-import type { Trait } from './trait';
-
 export type Role = 'developer' | 'designer' | 'pm';
 
 export type EmploymentType = 'regular' | 'contract';
@@ -46,7 +44,6 @@ export interface Employee {
   probationTurnsLeft: number; // 12에서 카운트다운, 0이면 전환 대기, -1이면 수습 없음(창업 멤버·전환 완료)
   specialistStats: SpecialistStats;
   commonStats: CommonStats;
-  traits: Trait[]; // 정확히 3개
   salary: number;  // 연봉 단위: 만원 (예: 4800 = 4800만원)
   hp: number;      // 0~100
   projectAssignments: Record<string, number>; // projectId → 배정 비율 (%)

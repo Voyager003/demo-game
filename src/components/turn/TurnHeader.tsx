@@ -1,5 +1,4 @@
 import { useGameStore } from '../../store/gameStore';
-import { calcMaxFatigue } from '../../engine/fatigue';
 
 const PHASE_NAMES: Record<number, string> = {
   1: 'Phase 1 — 이벤트',
@@ -13,8 +12,7 @@ export function TurnHeader() {
   const state = useGameStore((s) => s.state);
   if (!state) return null;
 
-  const maxFatigue = calcMaxFatigue(state.ceo.stats.leadership);
-  const fatiguePct = (state.currentFatigue / maxFatigue) * 100;
+  const fatiguePct = (state.fatigue.current / state.fatigue.max) * 100;
   const fatigueColor =
     fatiguePct > 50 ? 'positive' : fatiguePct > 25 ? 'warning' : 'danger';
 
@@ -47,7 +45,7 @@ export function TurnHeader() {
             />
           </div>
           <span className="fatigue-value">
-            {state.currentFatigue}/{maxFatigue}
+            {state.fatigue.current}/{state.fatigue.max}
           </span>
         </div>
         <div className="capital-display">
