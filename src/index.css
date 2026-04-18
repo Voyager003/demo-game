@@ -453,6 +453,12 @@ button {
   font-size: var(--font-size-sm);
 }
 .stat-row.primary { font-size: var(--font-size-base); font-weight: 600; margin-bottom: var(--space-xs); }
+.stat-row.sub { padding-left: var(--space-sm); opacity: 0.85; }
+.fin-section { display: flex; flex-direction: column; gap: 1px; }
+.fin-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--color-text-secondary); margin-bottom: 4px; }
+.fin-section-total { display: flex; justify-content: space-between; align-items: center; padding: 5px var(--space-sm); margin-top: 4px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); font-weight: 700; font-size: var(--font-size-sm); }
+.fin-net-row { display: flex; justify-content: space-between; align-items: center; padding: 6px var(--space-sm); background: rgba(255,255,255,0.05); border-radius: var(--radius-sm); font-weight: 700; font-size: var(--font-size-base); }
+.fin-forecast-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: var(--font-size-base); font-weight: 700; }
 .stat-value { font-weight: 600; }
 .crisis-bar {
   margin-top: var(--space-sm);
