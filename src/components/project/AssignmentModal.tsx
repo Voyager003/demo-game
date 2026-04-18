@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
-import { canPerformAction, employeeSpecialistTotal, estimateProjectCompletion } from '../../domain';
+import { canPerformAction } from '../../domain';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
-import type { Employee } from '../../types/employee';
-import type { Project } from '../../types/project';
+import {
+  buildAssignmentEstimate,
+  getOtherProjectCount,
+  getSpecSum,
+  isEmployeeAtCapacity,
+  statValClass,
+} from './assignment.view-model';
 
 const ROLE_LABELS: Record<string, string> = {
   developer: '개발자',
@@ -13,37 +18,13 @@ const ROLE_LABELS: Record<string, string> = {
   pm: 'PM',
 };
 
-function getSpecSum(emp: Employee): number {
-  return employeeSpecialistTotal(emp);
-}
-
-function statValClass(v: number): string {
-  if (v >= 1) return 'positive';
-  if (v <= -1) return 'danger';
-  return 'neutral';
-}
-
-interface Estimate {
-  progressPerTurn: number;
-  turnsLeft: number;
-  finishTurn: number;
-}
-
-function buildEstimate(
-  project: Project,
-  selectedEmployees: Employee[],
-  currentTurn: number,
-): Estimate | null {
-  return estimateProjectCompletion(project, selectedEmployees, currentTurn);
-}
-
 function EstimateCard({
   estimate,
   project,
   currentTurn,
 }: {
-  estimate: Estimate | null;
-  project: Project;
+  estimate: ReturnType<typeof buildAssignmentEstimate>;
+  project: Parameters<typeof buildAssignmentEstimate>[0];
   currentTurn: number;
 }) {
   const deadlineTurn =
@@ -100,18 +81,8 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
   const canConfirm = state.phase === 2 && canPerformAction(state, 'changeAssignment');
   const isOwnedProduct = project.kind === 'ownedProduct';
 
-  // 직원별 이 프로젝트를 제외한 투입 프로젝트 수
-  const getOtherProjectCount = (empId: string): number =>
-    state.activeProjects.filter(
-      (p) =>
-        p.id !== projectId &&
-        (p.status === 'active' || p.status === 'operating') &&
-        p.assignedEmployeeIds.includes(empId),
-    ).length;
-
-  // 직원 자신의 maxConcurrentProjects 초과 시 추가 불가 (현재 선택되지 않은 경우에만)
   const isAtCapacity = (emp: { id: string; maxConcurrentProjects: number }): boolean =>
-    !selectedIds.includes(emp.id) && getOtherProjectCount(emp.id) >= emp.maxConcurrentProjects;
+    isEmployeeAtCapacity(state.activeProjects, projectId, selectedIds, emp);
 
   const selectedEmployees = state.employees.filter((e) =>
     selectedIds.includes(e.id),
@@ -119,7 +90,7 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
 
   const estimate = isOwnedProduct
     ? null
-    : buildEstimate(project, selectedEmployees, state.turn);
+    : buildAssignmentEstimate(project, selectedEmployees, state.turn);
 
   const toggle = (emp: { id: string; maxConcurrentProjects: number }) => {
     if (isAtCapacity(emp)) return;
@@ -161,7 +132,7 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
         {state.employees.map((emp) => {
           const isSelected = selectedIds.includes(emp.id);
           const atCapacity = isAtCapacity(emp);
-          const otherCount = getOtherProjectCount(emp.id);
+          const otherCount = getOtherProjectCount(state.activeProjects, projectId, emp.id);
           const max = emp.maxConcurrentProjects;
           const specSum = getSpecSum(emp);
           const cs = emp.commonStats;
