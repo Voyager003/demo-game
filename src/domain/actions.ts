@@ -10,7 +10,7 @@ export const ACTION_RULES: Record<ActionType, ActionRule> = {
   conductInterview: { fatigue: 2, cooldown: 0 },
   fireEmployee: { fatigue: 2, cooldown: 1 },
   adjustSalary: { fatigue: 1, cooldown: 4 },
-  signContract: { fatigue: 3, cooldown: 1 },
+  signContract: { fatigue: 3, cooldown: 0 },
   changeAssignment: { fatigue: 1, cooldown: 0 },
   orderOvertime: { fatigue: 2, cooldown: 1 },
 };

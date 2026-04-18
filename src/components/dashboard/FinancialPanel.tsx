@@ -21,8 +21,7 @@ export function FinancialPanel() {
     }, 0);
 
   const totalIncome = recurringRevenue + pendingIncome;
-  // monthlyNetBurn > 0 means burning, netFlow = income - expenses
-  const netFlow = -monthlyNetBurn; // positive = surplus
+  const netFlow = totalIncome - monthlyBurn;
   const nextMonthCapital = state.capital + netFlow;
 
   const runwayClass =
