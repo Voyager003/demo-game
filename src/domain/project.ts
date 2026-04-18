@@ -1,8 +1,12 @@
 import { LV1_PROJECT_TEMPLATES } from '../constants/projectTemplates';
-import { employeeWeeklyContribution } from './employee';
+import {
+  resolveProjectDeterministicMetrics,
+  type ProjectDeterministicResolution,
+} from './layers/deterministic-layer';
 import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
 import type { Project } from '../types/project';
+import type { LayerTraceInput } from './logging';
 
 export interface ProjectEstimate {
   progressPerTurn: number;
@@ -14,7 +18,13 @@ export interface ProjectProgressResult {
   projects: Project[];
   completedProjects: Project[];
   overtimeEmployeeIds: string[];
-  logs: string[];
+  logs: ProjectProgressLog[];
+}
+
+export interface ProjectProgressLog {
+  message: string;
+  source: string;
+  layerTrace: LayerTraceInput;
 }
 
 function generateId(): string {
@@ -27,10 +37,6 @@ function randInt(min: number, max: number): number {
 
 function randFrom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 const MAIN_REVENUE_PROJECTS: Record<Domain, Pick<Project, 'name' | 'monthlyRevenue' | 'revenueModel' | 'revenueLabel'>> = {
@@ -120,12 +126,7 @@ export function generateInitialProjects(count = 3): Project[] {
 
 export function calculateProgressPerTurn(project: Project, assignedEmployees: Employee[]): number {
   if (assignedEmployees.length === 0) return 0;
-  const baseContribution = assignedEmployees.reduce(
-    (sum, employee) => sum + employeeWeeklyContribution(employee),
-    0,
-  );
-  const overtimeMultiplier = project.overtimeActive ? 1.25 : 1;
-  return baseContribution * 5 * overtimeMultiplier;
+  return resolveProjectDeterministicMetrics(project, assignedEmployees).progressPerTurn.finalValue;
 }
 
 export function estimateProjectCompletion(
@@ -146,23 +147,42 @@ export function estimateProjectCompletion(
   };
 }
 
-function calculateClientSatisfaction(project: Project, assignedEmployees: Employee[]): number {
-  const avgContribution =
-    assignedEmployees.length === 0
-      ? 0
-      : assignedEmployees.reduce((sum, employee) => sum + employeeWeeklyContribution(employee), 0) /
-        assignedEmployees.length;
-  const onTimeBonus = project.turnsElapsed <= project.turnsRequired ? 10 : -15;
-  return clamp(Math.round(65 + avgContribution * 3 + onTimeBonus), 30, 100);
-}
-
-function completeProject(project: Project, assignedEmployees: Employee[]): Project {
+function completeProject(project: Project, clientSatisfaction: number): Project {
   return {
     ...project,
     status: 'completed',
     progress: 100,
-    clientSatisfaction: calculateClientSatisfaction(project, assignedEmployees),
+    clientSatisfaction,
     overtimeActive: false,
+  };
+}
+
+function createProjectCompletionTrace(
+  project: Project,
+  assignedEmployees: Employee[],
+  progressGain: number,
+  resolution: ProjectDeterministicResolution,
+): LayerTraceInput {
+  return {
+    layer: 'deterministic',
+    rule: '프로젝트 진행/만족도 결정론 레이어 해석',
+    trigger: '주간 진척 계산 후 progress가 100 이상',
+    inputs: [
+      `project=${project.name}`,
+      `progressBefore=${Math.round(project.progress)}%`,
+      `progressGain=${progressGain.toFixed(2)}%`,
+      `assignedEmployees=${assignedEmployees.length}명`,
+    ],
+    effects: [
+      resolution.progressPerTurn.trace.finalValue ?? '',
+      ...resolution.progressPerTurn.trace.effects,
+      resolution.clientSatisfaction.trace.finalValue ?? '',
+      ...resolution.clientSatisfaction.trace.effects,
+      'project.status=completed',
+      'project.progress=100',
+      `clientSatisfaction=${resolution.clientSatisfaction.finalValue}%`,
+    ].filter(Boolean),
+    finalValue: `progress=100, clientSatisfaction=${resolution.clientSatisfaction.finalValue}%`,
   };
 }
 
@@ -227,7 +247,7 @@ export class ProjectPortfolio {
   }
 
   advanceWeek(employees: Employee[]): ProjectProgressResult {
-    const logs: string[] = [];
+    const logs: ProjectProgressLog[] = [];
     const completedProjects: Project[] = [];
     const overtimeEmployeeIds: string[] = [];
 
@@ -238,19 +258,51 @@ export class ProjectPortfolio {
       );
       if (project.overtimeActive) overtimeEmployeeIds.push(...project.assignedEmployeeIds);
 
-      const progressGain = calculateProgressPerTurn(project, assigned);
+      const deterministicResolution = resolveProjectDeterministicMetrics(project, assigned);
+      const progressGain = deterministicResolution.progressPerTurn.finalValue;
       const turnsElapsed = project.turnsElapsed + 1;
       const progress = Math.min(100, project.progress + progressGain);
 
       if (progress >= 100) {
-        const completed = completeProject({ ...project, progress, turnsElapsed }, assigned);
+        const completedProject = { ...project, progress, turnsElapsed };
+        const completionResolution = resolveProjectDeterministicMetrics(completedProject, assigned);
+        const completed = completeProject(
+          completedProject,
+          completionResolution.clientSatisfaction.finalValue,
+        );
         completedProjects.push(completed);
-        logs.push(`[${project.name}] 납품 완료 (만족도 ${completed.clientSatisfaction}%)`);
+        logs.push({
+          message: `[${project.name}] 납품 완료 (만족도 ${completed.clientSatisfaction}%)`,
+          source: 'ProjectPortfolio.advanceWeek',
+          layerTrace: createProjectCompletionTrace(
+            project,
+            assigned,
+            progressGain,
+            completionResolution,
+          ),
+        });
         return completed;
       }
 
       if (assigned.length === 0 && turnsElapsed > project.turnsRequired + 3) {
-        logs.push(`[${project.name}] 프로젝트 실패 (인력 미배정)`);
+        logs.push({
+          message: `[${project.name}] 프로젝트 실패 (인력 미배정)`,
+          source: 'ProjectPortfolio.advanceWeek',
+          layerTrace: {
+            rule: '인력 미배정 장기 방치 실패',
+            trigger: '배정 인원이 0명. 경과 턴이 요구 턴 + 3을 초과',
+            inputs: [
+              `project=${project.name}`,
+              `assignedEmployees=${assigned.length}명`,
+              `turnsElapsed=${turnsElapsed}`,
+              `turnsRequired=${project.turnsRequired}`,
+            ],
+            effects: [
+              'project.status=failed',
+              'overtimeActive=false',
+            ],
+          },
+        });
         return { ...project, turnsElapsed, status: 'failed' as const, overtimeActive: false };
       }
 

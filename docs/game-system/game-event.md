@@ -2,7 +2,7 @@
 
 ## 1. 3레이어 이벤트 모델
 
-### Layer 1. 결정론적 레이어 (Deterministic) — 비중 40%
+### Layer 1. 결정론적 레이어 (Deterministic)
 
 > "하면 반드시 된다" — 학습 가능한 인과관계
 
@@ -15,11 +15,61 @@
 | PM 배치 | 딜레이↓, 재작업↓ |
 | CTO 채용 | 개발팀 +10% |
 
-**설계 원칙**: 플레이어가 "이건 하면 좋다"고 학습할 수 있어야 함
+#### 현재 구현 스펙: 공통 modifier 모델
+
+결정론적 레이어는 `Rule → LayerEffect → LayerTrace` 흐름으로 동작한다.
+
+```
+final = clamp(round((base + sum(add)) * (1 + sum(percent))))
+```
+
+- `add`: 고정 수치 보정. 예: 프로젝트 주간 진척도 `+12`
+- `percent`: 비율 보정. 예: 야근 지시 `+25%`
+- `set`: 기준값 교체. 예: 주수입원 월 기본 매출을 `economy.recurringRevenue` 기준값으로 설정
+- 여러 `percent` modifier는 연쇄 곱하지 않고 합산 후 한 번만 곱한다.
+
+#### 현재 구현된 결정론 룰
+
+현재 구현된 적용 범위는 외주 프로젝트의 `project.progressPerTurn`, `project.clientSatisfaction`,
+그리고 주수입원의 `economy.recurringRevenue`이다.
+
+| 지표 | 기준값 | 결정론적 입력 | 결과 |
+|------|--------|---------------|------|
+| `project.progressPerTurn` | 0 | 개발자/디자이너 전문 스탯, PM 지원, 공통 스탯, 수습, 야근 | 이번 턴 진척도 증가량 |
+| `project.clientSatisfaction` | 70 | 산출물 품질, PM 고객/요구사항 관리, 납기 준수 | 납품 시 클라이언트 만족도 |
+| `economy.recurringRevenue` | 주수입원 월 기본 매출 | 주수입원 배정 인력, 직원별 활성 프로젝트 수, 커뮤니케이션 | 월 정산/재무 화면에 쓰는 실효 반복 매출 |
+
+역할별 스탯은 묶음 룰로 계산하고, 세부 스탯은 로그 trace에 표시한다.
+
+| 역할 | 진척도 영향 | 만족도 영향 |
+|------|-------------|-------------|
+| 개발자 | 구현속도, 문제해결력, 기술스택폭, 코드품질 | 코드품질, 문제해결력, 보안감각, 기술스택폭 |
+| 디자이너 | 작업속도, 프로토타이핑, UX사고력, UI감각 | UI감각, UX사고력, 브랜딩감각, 프로토타이핑 |
+| PM | 일정관리, 팀조율력, 리스크감지로 진척도 percent 지원 | 고객응대, 요구사항분석, 리스크감지, 팀조율력 |
+
+#### 주수입원 실효 매출 결정론 룰
+
+rebase 이후 추가된 주수입원 매출 계산은 결정론적 레이어의 `economy.recurringRevenue` 지표로 적용한다.
+기존 하드코딩 수식의 결과는 유지하되, 계산 과정은 `Rule → LayerEffect → LayerTrace`로 남긴다.
+
+| 룰 | 입력 | 효과 |
+|----|------|------|
+| `economy.recurring-revenue.main-product-base` | `isMainRevenue=true`, `status=operating` 프로젝트 | 해당 프로젝트의 `monthlyRevenue`를 기준값으로 `set` |
+| `economy.recurring-revenue.effective-operation` | 배정 직원 수, 직원별 활성/운영 프로젝트 수, 평균 communication | 외주 병행 투입률과 커뮤니케이션 보정을 합친 `percent` 적용 |
+
+실효 매출은 다음 의미를 갖는다.
+
+```
+주수입원 실효 매출 = 주수입원 월 기본 매출 * 투입률 * (1 + 평균 communication * 0.03)
+```
+
+- 투입률은 주수입원에 배정된 직원이 다른 활성/운영 프로젝트에 함께 배정되면 낮아진다.
+- 직원이 없거나 주수입원에 배정된 직원이 없으면 실효 매출은 0으로 보정된다.
+- 월 정산, 재무 패널, 턴 리포트는 모두 이 결정론적 결과를 사용한다.
 
 ---
 
-### Layer 2. 확률적 레이어 (Probabilistic) — 비중 35%
+### Layer 2. 확률적 레이어 (Probabilistic)
 
 > "하면 될 수도 있다" — 조건 충족 시 확률 발동
 
@@ -33,6 +83,20 @@
 | 창업꿈나무 + 48턴 재직 | 퇴사+기술유출 | 0% → 60% |
 
 **설계 원칙**: 0%와 100%는 존재하지 않음. 좋은 조건에서도 나쁜 일, 나쁜 조건에서도 버틸 수 있음
+
+#### 현재 구현 스펙: 타입과 껍데기
+
+확률적 레이어도 결정론적 레이어와 같은 modifier 모델을 사용한다. 차이는 최종 대상이 게임 수치가 아니라 확률 수치라는 점이다.
+
+| 확률 지표 | 예시 modifier | 설명 |
+|-----------|---------------|------|
+| `probability.projectDelay` | PM 없음 `+15%` | 프로젝트 딜레이 이벤트 확률 |
+| `probability.projectRework` | PM 없음 `+10%` | 요구사항 오해/재작업 이벤트 확률 |
+| `probability.employeeBurnout` | HP 0 이하 `+35%` | 직원 번아웃 선언 확률 |
+| `probability.employeeQuit` | 충성도 0 이하 `+30%/turn` | 이직 통보 확률 |
+| `probability.serviceOutage` | 기술 부채 61 이상 `+25%/turn` | 서비스 장애 확률 |
+
+현재 코드는 `ProbabilisticLayer` 상속 구조와 확률 지표 타입만 정의한다. RNG, seed, roll log, 실제 확률 이벤트 발생은 추후 구현한다.
 
 ---
 
@@ -127,6 +191,20 @@
 | **트리거 레이어** | 결정론적 / 확률적 / 연쇄 효과 |
 | **트리거 조건** | 이벤트 발생 원인 요약 (예: "기술 부채 65 → 서비스 장애 확률 발동") |
 | **결과** | 이벤트 결과 요약 |
+
+### LayerTrace
+
+로그 hover에는 공통 `LayerTrace`를 표시한다.
+
+| 필드 | 설명 |
+|------|------|
+| **layer** | 결정론적 / 확률적 |
+| **rule** | 적용된 룰 이름 |
+| **trigger** | 룰이 실행된 조건 |
+| **inputs** | 계산에 사용된 상태값 |
+| **effects** | 적용된 modifier 목록 |
+| **finalValue** | 집계된 최종 지표값 |
+| **note** | 현재 구현 상태 또는 설계 메모 |
 
 ### 로그 접근
 

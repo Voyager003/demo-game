@@ -12,8 +12,8 @@ export function TurnReportModal() {
 
   const capitalDelta = prev ? state.capital - prev.capital : 0;
   const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
-  const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(state.activeProjects);
-  const monthlyNetBurn = EconomyLedger.monthlyNetBurn(state.employees, state.activeProjects);
+  const recurringRevenue = EconomyLedger.effectiveRecurringRevenue(state.activeProjects, state.employees);
+  const monthlyNetBurn = EconomyLedger.effectiveMonthlyNetBurn(state.employees, state.activeProjects);
   const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
 
   const recentLogs = state.eventLog.slice(-8).reverse();
