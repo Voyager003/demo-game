@@ -46,6 +46,7 @@ export interface Employee {
   commonStats: CommonStats;
   salary: number;  // 연봉 단위: 만원 (예: 4800 = 4800만원)
   hp: number;      // 0~100
+  maxConcurrentProjects: number; // 1~3: 동시에 투입 가능한 프로젝트 수
   projectAssignments: Record<string, number>; // projectId → 배정 비율 (%)
   hiredOnTurn: number;
 }

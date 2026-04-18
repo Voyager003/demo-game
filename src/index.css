@@ -273,6 +273,14 @@ button {
   border-radius: var(--radius-sm);
 }
 .founding-salary { font-size: var(--font-size-sm); color: var(--color-text-secondary); white-space: nowrap; }
+.founding-concurrent { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: var(--space-xs); }
+.resume-concurrent { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: var(--space-xs); }
+.detail-slot-row { display: flex; align-items: center; gap: 8px; margin-top: var(--space-xs); }
+.detail-slot-label { font-size: var(--font-size-sm); color: var(--color-text-secondary); min-width: 80px; text-align: right; }
+.assignment-emp-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.assignment-emp-stats-row { display: flex; align-items: center; gap: var(--space-sm); }
+.assignment-emp-slot-row { display: flex; align-items: center; gap: 6px; }
+.assignment-emp-slot-label { font-size: 10px; color: var(--color-text-muted); }
 .founding-stats, .founding-common { display: flex; flex-direction: column; }
 .founding-selected-mark {
   position: absolute;
@@ -859,6 +867,70 @@ button {
 .new-game-btn { background: var(--color-surface-alt); border: 1px solid var(--color-border); }
 .new-game-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
+/* ─── 패널 스팬 ──────────────────────────────────────────────── */
+.panel-span-2 { grid-column: span 2; }
+
+/* ─── 주수입원 패널 ──────────────────────────────────────────── */
+.main-revenue-panel { display: flex; flex-direction: column; gap: var(--space-sm); }
+.main-revenue-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+.main-revenue-header .panel-title { margin-bottom: 2px; }
+.main-revenue-name { font-size: var(--font-size-md); font-weight: 700; display: block; }
+.main-revenue-model { font-size: var(--font-size-xs); }
+.main-revenue-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+.main-revenue-financials { display: flex; flex-direction: column; gap: 4px; }
+.main-revenue-ratio-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-xs) 0;
+}
+.main-revenue-ratio-track {
+  flex: 1;
+  height: 8px;
+  background: var(--color-stat-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.main-revenue-ratio-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width var(--transition-base);
+  background: var(--color-accent);
+}
+.main-revenue-ratio-fill.positive { background: var(--color-positive); }
+.main-revenue-ratio-fill.warning { background: var(--color-warning); }
+.main-revenue-ratio-fill.danger { background: var(--color-danger); }
+.main-revenue-ratio-label { font-size: var(--font-size-xs); font-weight: 700; min-width: 36px; text-align: right; }
+.main-revenue-ratio-label.positive { color: var(--color-positive); }
+.main-revenue-ratio-label.warning { color: var(--color-warning); }
+.main-revenue-ratio-label.danger { color: var(--color-danger); }
+.main-revenue-hint { font-size: var(--font-size-xs); }
+.main-revenue-employees { display: flex; flex-direction: column; gap: var(--space-xs); }
+.main-revenue-emp-title { font-size: var(--font-size-xs); margin-bottom: 4px; }
+.main-revenue-emp-list { display: flex; flex-direction: column; gap: 4px; }
+.main-revenue-emp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px var(--space-sm);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+.main-revenue-emp-info { display: flex; align-items: center; gap: var(--space-sm); }
+.main-revenue-emp-contrib { display: flex; align-items: center; gap: var(--space-xs); }
+
 /* ─── 인력 배정 모달 ─────────────────────────────────────────── */
 .assignment-modal { display: flex; flex-direction: column; gap: var(--space-md); }
 .assignment-project-info {
@@ -909,6 +981,9 @@ button {
 }
 .assignment-emp-badge.on { color: var(--color-accent); background: rgba(79,142,247,0.15); }
 .assignment-emp-badge.off { color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border); }
+.assignment-emp-badge.capacity-full { color: var(--color-danger); background: rgba(240,82,82,0.1); border: 1px solid rgba(240,82,82,0.3); }
+.assignment-emp-row.at-capacity { opacity: 0.5; cursor: not-allowed; }
+.assignment-emp-row.at-capacity:hover { border-color: var(--color-border); background: var(--color-surface-alt); }
 .assignment-footer {
   display: flex;
   justify-content: space-between;
@@ -947,6 +1022,16 @@ button {
 .estimate-warn { color: var(--color-danger); font-weight: 700; }
 .estimate-ok { color: var(--color-positive); }
 .estimate-no-dev { font-size: var(--font-size-xs); color: var(--color-warning); font-weight: 600; }
+
+/* ─── 프로젝트 슬롯 바 ──────────────────────────────────────── */
+.project-slot-bar { display: flex; align-items: center; gap: 3px; }
+.project-slot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--color-accent);
+}
 
 /* 직원 행 공통 스탯 */
 .emp-common-stats { display: flex; gap: 4px; align-items: center; }

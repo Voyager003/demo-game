@@ -106,6 +106,7 @@ function createCandidate(role: Role, tier: number, currentTurn: number): Employe
     commonStats: generateCommonStats(),
     salary: randInt(salaryRange[0], salaryRange[1]),
     hp: 100,
+    maxConcurrentProjects: randInt(1, 3),
     projectAssignments: {},
     hiredOnTurn: currentTurn,
   };

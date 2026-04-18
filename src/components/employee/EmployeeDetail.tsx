@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
+import { ProjectSlotBar } from '../shared/ProjectSlotBar';
 
 const ROLE_LABELS: Record<string, string> = {
   developer: '개발자',
@@ -99,6 +100,10 @@ export function EmployeeDetail() {
                 max={5}
               />
             ))}
+            <div className="detail-slot-row">
+              <span className="detail-slot-label">동시 투입가능 프로젝트</span>
+              <ProjectSlotBar max={emp.maxConcurrentProjects} />
+            </div>
           </div>
 
         </div>

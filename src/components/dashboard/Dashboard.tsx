@@ -5,6 +5,7 @@ import { ActionMenu } from '../turn/ActionMenu';
 import { TurnReportModal } from '../turn/TurnReportModal';
 import { FinancialPanel } from './FinancialPanel';
 import { TeamPanel } from './TeamPanel';
+import { MainRevenuePanel } from './MainRevenuePanel';
 import { EventLogPanel } from './EventLogPanel';
 import { FunctionLogPanel } from './FunctionLogPanel';
 import { AlertPanel } from './AlertPanel';
@@ -55,9 +56,9 @@ export function Dashboard() {
           <div className="panel-grid">
             <FinancialPanel />
             <TeamPanel />
+            <MainRevenuePanel />
             <AlertPanel />
             <EventLogPanel />
-            <FunctionLogPanel />
           </div>
 
           {/* 프로젝트 섹션 */}
@@ -77,21 +78,25 @@ export function Dashboard() {
               </div>
             )}
 
-            {state.activeProjects.length > 0 && (
+            {state.activeProjects.filter((p) => !p.isMainRevenue).length > 0 && (
               <div className="projects-group">
-                <h3 className="section-title">진행 중인 프로젝트</h3>
+                <h3 className="section-title">진행 중인 외주</h3>
                 <div className="project-list">
-                  {state.activeProjects.map((p) => (
-                    <ProjectCard
-                      key={p.id}
-                      project={p}
-                      onAssign={isPhase2 ? (id) => openModal('assignment', id) : undefined}
-                    />
-                  ))}
+                  {state.activeProjects
+                    .filter((p) => !p.isMainRevenue)
+                    .map((p) => (
+                      <ProjectCard
+                        key={p.id}
+                        project={p}
+                        onAssign={isPhase2 ? (id) => openModal('assignment', id) : undefined}
+                      />
+                    ))}
                 </div>
               </div>
             )}
           </div>
+
+          <FunctionLogPanel />
         </main>
       </div>
 

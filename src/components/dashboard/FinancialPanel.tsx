@@ -8,8 +8,8 @@ export function FinancialPanel() {
   const salaries = EconomyLedger.monthlySalaries(state.employees);
   const operating = EconomyLedger.monthlyOperatingCosts(state.employees.length);
   const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
-  const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(state.activeProjects);
-  const monthlyNetBurn = EconomyLedger.monthlyNetBurn(state.employees, state.activeProjects);
+  const recurringRevenue = EconomyLedger.effectiveRecurringRevenue(state.activeProjects, state.employees);
+  const monthlyNetBurn = EconomyLedger.effectiveMonthlyNetBurn(state.employees, state.activeProjects);
   const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
 
   const runwayClass =
