@@ -40,8 +40,19 @@ export class GameSession {
   static startNewGame(domain: Domain, companyName: string, foundingMember: Employee): GameSession {
     const stats = DOMAIN_INITIAL_STATS[domain];
     const fatigue = FatigueMeter.startTurn(stats.leadership).toSnapshot();
-    const founder = createFounder(foundingMember);
-    const mainRevenueProject = generateMainRevenueProject(domain);
+    const founderBase = createFounder(foundingMember);
+    const mainRevenueProjectBase = generateMainRevenueProject(domain);
+
+    // 창업 멤버를 주수입원에 자동 배정
+    const mainRevenueProject = {
+      ...mainRevenueProjectBase,
+      assignedEmployeeIds: [founderBase.id],
+    };
+    const founder = {
+      ...founderBase,
+      projectAssignments: { [mainRevenueProject.id]: 100 },
+    };
+
     const session = new GameSession({
       turn: 1,
       phase: 1,
@@ -57,6 +68,7 @@ export class GameSession {
       eventLog: [
         makeLog(1, `${founder.name}(개발자)이(가) 공동 창업 멤버로 합류했습니다.`),
         makeLog(1, `[${mainRevenueProject.name}] 회사 주수입원으로 등록되었습니다.`),
+        makeLog(1, `${founder.name}이(가) 주수입원에 자동 배정되었습니다.`),
       ],
       pendingEvents: [],
       gameStatus: 'playing',
@@ -135,6 +147,21 @@ export class GameSession {
     this.state.pendingResumes = this.state.pendingResumes.filter((resume) => resume.id !== candidateId);
     this.state.employees = new EmployeeRoster(this.state.employees).add(candidate).toSnapshots();
     this.addLog(`${candidate.name}(${candidate.role}) 채용 확정`);
+
+    // 신규 직원 주수입원에 자동 배정
+    const mainProject = this.state.activeProjects.find((p) => p.isMainRevenue);
+    if (mainProject) {
+      const newIds = [...mainProject.assignedEmployeeIds, candidate.id];
+      const portfolio = new ProjectPortfolio(this.state.activeProjects, this.state.availableProjects)
+        .setAssignments(mainProject.id, newIds);
+      const snapshots = portfolio.toSnapshots();
+      this.state.activeProjects = snapshots.activeProjects;
+      this.state.availableProjects = snapshots.availableProjects;
+      this.state.employees = new EmployeeRoster(this.state.employees)
+        .setProjectAssignments(mainProject.id, newIds)
+        .toSnapshots();
+      this.addLog(`${candidate.name}이(가) 주수입원에 자동 배정되었습니다.`);
+    }
     return this;
   }
 
@@ -303,12 +330,17 @@ export class GameSession {
   private applyWeeklySettlement(): void {
     this.traceFunction('GameSession.applyWeeklySettlement');
     if (this.state.turn % 4 !== 0) return;
-    const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(this.state.activeProjects);
+    const baseRevenue = EconomyLedger.monthlyRecurringRevenue(this.state.activeProjects);
+    const recurringRevenue = EconomyLedger.effectiveRecurringRevenue(this.state.activeProjects, this.state.employees);
     const salaries = EconomyLedger.monthlySalaries(this.state.employees);
     const operating = EconomyLedger.monthlyOperatingCosts(this.state.employees.length);
     if (recurringRevenue > 0) {
       this.state.capital += recurringRevenue;
-      this.addLog(`주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원`);
+      if (recurringRevenue < baseRevenue) {
+        this.addLog(`주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원 (기본 ${baseRevenue.toLocaleString()}만원 중 외주 투입으로 감소)`);
+      } else {
+        this.addLog(`주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원`);
+      }
     }
     this.state.capital -= salaries + operating;
     this.addLog(`인건비 차감: -${salaries.toLocaleString()}만원`);

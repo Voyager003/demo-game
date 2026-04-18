@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
+import { ProjectSlotBar } from '../shared/ProjectSlotBar';
 import type { Employee } from '../../types/employee';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -57,6 +58,10 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             max={5}
           />
         ))}
+        <div className="resume-concurrent">
+          <span className="muted">동시 투입가능 프로젝트</span>
+          <ProjectSlotBar max={candidate.maxConcurrentProjects} />
+        </div>
       </div>
 
       <button className="hire-btn" onClick={() => onHire(candidate.id)}>

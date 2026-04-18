@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
 import { canPerformAction, employeeSpecialistTotal, estimateProjectCompletion } from '../../domain';
+import { ProjectSlotBar } from '../shared/ProjectSlotBar';
 import type { Employee } from '../../types/employee';
 import type { Project } from '../../types/project';
 
@@ -97,20 +98,33 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
   if (!state || !project) return null;
 
   const canConfirm = state.phase === 2 && canPerformAction(state, 'changeAssignment');
+  const isOwnedProduct = project.kind === 'ownedProduct';
+
+  // 직원별 이 프로젝트를 제외한 투입 프로젝트 수
+  const getOtherProjectCount = (empId: string): number =>
+    state.activeProjects.filter(
+      (p) =>
+        p.id !== projectId &&
+        (p.status === 'active' || p.status === 'operating') &&
+        p.assignedEmployeeIds.includes(empId),
+    ).length;
+
+  // 직원 자신의 maxConcurrentProjects 초과 시 추가 불가 (현재 선택되지 않은 경우에만)
+  const isAtCapacity = (emp: { id: string; maxConcurrentProjects: number }): boolean =>
+    !selectedIds.includes(emp.id) && getOtherProjectCount(emp.id) >= emp.maxConcurrentProjects;
 
   const selectedEmployees = state.employees.filter((e) =>
     selectedIds.includes(e.id),
   );
 
-  const estimate = buildEstimate(
-    project,
-    selectedEmployees,
-    state.turn,
-  );
+  const estimate = isOwnedProduct
+    ? null
+    : buildEstimate(project, selectedEmployees, state.turn);
 
-  const toggle = (empId: string) => {
+  const toggle = (emp: { id: string; maxConcurrentProjects: number }) => {
+    if (isAtCapacity(emp)) return;
     setSelectedIds((prev) =>
-      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId],
+      prev.includes(emp.id) ? prev.filter((id) => id !== emp.id) : [...prev, emp.id],
     );
   };
 
@@ -123,16 +137,22 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
     <div className="assignment-modal">
       <div className="assignment-project-info">
         <span className="assignment-project-name">{project.name}</span>
-        <span className="assignment-project-meta">
-          진행도 {project.progress}% · {project.turnsElapsed}/{project.turnsRequired}턴
-        </span>
+        {isOwnedProduct ? (
+          <span className="assignment-project-meta">주수입원 · 월 {project.monthlyRevenue.toLocaleString()}만원</span>
+        ) : (
+          <span className="assignment-project-meta">
+            진행도 {project.progress}% · {project.turnsElapsed}/{project.turnsRequired}턴
+          </span>
+        )}
       </div>
 
-      <EstimateCard
-        estimate={estimate}
-        project={project}
-        currentTurn={state.turn}
-      />
+      {!isOwnedProduct && (
+        <EstimateCard
+          estimate={estimate}
+          project={project}
+          currentTurn={state.turn}
+        />
+      )}
 
       <div className="assignment-employee-list">
         {state.employees.length === 0 && (
@@ -140,13 +160,18 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
         )}
         {state.employees.map((emp) => {
           const isSelected = selectedIds.includes(emp.id);
+          const atCapacity = isAtCapacity(emp);
+          const otherCount = getOtherProjectCount(emp.id);
+          const max = emp.maxConcurrentProjects;
           const specSum = getSpecSum(emp);
           const cs = emp.commonStats;
           return (
             <button
               key={emp.id}
-              className={`assignment-emp-row ${isSelected ? 'selected' : ''}`}
-              onClick={() => toggle(emp.id)}
+              className={`assignment-emp-row ${isSelected ? 'selected' : ''} ${atCapacity ? 'at-capacity' : ''}`}
+              onClick={() => toggle(emp)}
+              disabled={atCapacity}
+              title={atCapacity ? `이미 ${otherCount}개 프로젝트에 투입 중 (최대 ${max}개)` : undefined}
             >
               <div className="assignment-emp-left">
                 <span className="assignment-emp-name">{emp.name}</span>
@@ -156,21 +181,24 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
                 )}
               </div>
               <div className="assignment-emp-right">
-                <span className="assignment-emp-spec">스탯합 {specSum}</span>
-                <span className="emp-common-stats">
-                  <span className={`stat-val ${statValClass(cs.stamina)}`}>
-                    체력{cs.stamina >= 0 ? '+' : ''}{cs.stamina}
+                <div className="assignment-emp-stats-row">
+                  <span className="assignment-emp-spec">스탯합 {specSum}</span>
+                  <span className="emp-common-stats">
+                    <span className={`stat-val ${statValClass(cs.stamina)}`}>
+                      체력{cs.stamina >= 0 ? '+' : ''}{cs.stamina}
+                    </span>
+                    <span className={`stat-val ${statValClass(cs.communication)}`}>
+                      소통{cs.communication >= 0 ? '+' : ''}{cs.communication}
+                    </span>
+                    <span className={`stat-val ${statValClass(cs.mental)}`}>
+                      멘탈{cs.mental >= 0 ? '+' : ''}{cs.mental}
+                    </span>
                   </span>
-                  <span className={`stat-val ${statValClass(cs.communication)}`}>
-                    소통{cs.communication >= 0 ? '+' : ''}{cs.communication}
-                  </span>
-                  <span className={`stat-val ${statValClass(cs.mental)}`}>
-                    멘탈{cs.mental >= 0 ? '+' : ''}{cs.mental}
-                  </span>
-                </span>
-                <span className={`assignment-emp-badge ${isSelected ? 'on' : 'off'}`}>
-                  {isSelected ? '배정 ✓' : '미배정'}
-                </span>
+                </div>
+                <div className="assignment-emp-slot-row">
+                  <span className="assignment-emp-slot-label">동시 투입가능 프로젝트</span>
+                  <ProjectSlotBar max={max} />
+                </div>
               </div>
             </button>
           );

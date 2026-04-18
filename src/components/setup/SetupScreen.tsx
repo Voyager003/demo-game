@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { DOMAIN_LABELS, DOMAIN_DESCRIPTIONS, DOMAIN_INITIAL_STATS } from '../../constants/domainStats';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
 import { EmployeeRoster, maxFatigueForLeadership } from '../../domain';
+import { ProjectSlotBar } from '../shared/ProjectSlotBar';
 import type { Domain } from '../../types/ceo';
 import type { Employee, DeveloperStats } from '../../types/employee';
 
@@ -82,6 +83,10 @@ function FoundingMemberCard({
             max={5}
           />
         ))}
+        <div className="founding-concurrent">
+          <span>동시 투입가능 프로젝트</span>
+          <ProjectSlotBar max={candidate.maxConcurrentProjects} />
+        </div>
       </div>
 
       {selected && <div className="founding-selected-mark">선택됨 ✓</div>}
