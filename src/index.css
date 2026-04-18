@@ -664,17 +664,20 @@ button {
   gap: var(--space-sm);
 }
 .project-card.active { border-color: var(--color-accent); }
+.project-card.operating { border-color: var(--color-positive); background: rgba(61,214,140,0.04); }
 .project-card.completed { border-color: var(--color-positive); opacity: 0.8; }
 .project-card.failed { border-color: var(--color-danger); opacity: 0.6; }
 .project-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
 .project-name { font-weight: 600; font-size: var(--font-size-sm); flex: 1; }
 .project-status { font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--radius-sm); }
 .project-status.active { background: rgba(79,142,247,0.15); color: var(--color-accent); }
+.project-status.operating { background: rgba(61,214,140,0.15); color: var(--color-positive); }
 .project-status.completed { background: rgba(61,214,140,0.15); color: var(--color-positive); }
 .project-status.failed { background: rgba(240,82,82,0.15); color: var(--color-danger); }
 .project-level { font-size: var(--font-size-xs); color: var(--color-text-muted); }
 .project-money { font-size: var(--font-size-sm); display: flex; flex-direction: column; gap: 2px; }
 .project-info { display: flex; justify-content: space-between; align-items: center; font-size: var(--font-size-sm); flex-wrap: wrap; gap: var(--space-xs); }
+.project-info.operating { color: var(--color-text-secondary); }
 .project-info.completed { color: var(--color-positive); }
 .sign-btn, .assign-btn {
   padding: var(--space-xs) var(--space-sm);

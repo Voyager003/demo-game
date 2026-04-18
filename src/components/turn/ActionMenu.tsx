@@ -42,6 +42,9 @@ export function ActionMenu() {
   const can = (action: ActionType) => canPerformAction(state, action);
   const onCooldown = (action: ActionType) => (state.fatigue.cooldowns[action] ?? 0) > 0;
   const cooldownLeft = (action: ActionType) => state.fatigue.cooldowns[action] ?? 0;
+  const hasActiveContractProject = state.activeProjects.some(
+    (project) => project.status === 'active',
+  );
 
   return (
     <div className="action-menu">
@@ -126,7 +129,7 @@ export function ActionMenu() {
               label="업무 배분 변경"
               description="직원-프로젝트 배정 조정."
               onClick={() => {}}
-              disabled={!can('changeAssignment') || state.activeProjects.length === 0}
+              disabled={!can('changeAssignment') || !hasActiveContractProject}
             />
             <ActionButton
               action="orderOvertime"
@@ -137,7 +140,7 @@ export function ActionMenu() {
               }
               description="단기 생산성 부스트. 직원 HP 소모. 쿨타임 1턴."
               onClick={() => {}}
-              disabled={!can('orderOvertime') || state.activeProjects.length === 0}
+              disabled={!can('orderOvertime') || !hasActiveContractProject}
             />
           </>
         )}

@@ -7,8 +7,10 @@ export function FinancialPanel() {
 
   const salaries = EconomyLedger.monthlySalaries(state.employees);
   const operating = EconomyLedger.monthlyOperatingCosts(state.employees.length);
-  const monthlyBurn = salaries + operating;
-  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyBurn);
+  const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
+  const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(state.activeProjects);
+  const monthlyNetBurn = EconomyLedger.monthlyNetBurn(state.employees, state.activeProjects);
+  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
 
   const runwayClass =
     runway === Infinity ? 'positive' :
@@ -50,6 +52,20 @@ export function FinancialPanel() {
       <div className="stat-row">
         <span>월 총 지출</span>
         <span className="stat-value">-{monthlyBurn.toLocaleString()}만원</span>
+      </div>
+      {recurringRevenue > 0 && (
+        <div className="stat-row">
+          <span>월 반복 수입</span>
+          <span className="stat-value positive">+{recurringRevenue.toLocaleString()}만원</span>
+        </div>
+      )}
+      <div className="stat-row">
+        <span>월 순현금흐름</span>
+        <span className={`stat-value ${monthlyNetBurn <= 0 ? 'positive' : ''}`}>
+          {monthlyNetBurn <= 0
+            ? `+${Math.abs(monthlyNetBurn).toLocaleString()}만원`
+            : `-${monthlyNetBurn.toLocaleString()}만원`}
+        </span>
       </div>
 
       {pendingIncome > 0 && (

@@ -13,14 +13,17 @@ export function ProjectCard({ project, onSign, onAssign }: Props) {
   const advance = Math.round(project.totalAmount * 0.3);
   const final = Math.round(project.totalAmount * 0.7);
   const turnsLeft = project.turnsRequired - project.turnsElapsed;
+  const isOwnedProduct = project.kind === 'ownedProduct';
 
   const statusLabel =
     project.status === 'available' ? '계약 가능' :
     project.status === 'active' ? '진행 중' :
+    project.status === 'operating' ? '주수입원' :
     project.status === 'completed' ? '완료' : '실패';
 
   const statusClass =
     project.status === 'active' ? 'active' :
+    project.status === 'operating' ? 'operating' :
     project.status === 'completed' ? 'completed' :
     project.status === 'failed' ? 'failed' : '';
 
@@ -29,13 +32,29 @@ export function ProjectCard({ project, onSign, onAssign }: Props) {
       <div className="project-header">
         <span className="project-name">{project.name}</span>
         <span className={`project-status ${statusClass}`}>{statusLabel}</span>
-        <span className="project-level">{LEVEL_LABELS[project.level]}</span>
+        <span className="project-level">
+          {isOwnedProduct ? '자체' : LEVEL_LABELS[project.level]}
+        </span>
       </div>
 
-      <div className="project-money">
-        <span>총 {project.totalAmount.toLocaleString()}만원</span>
-        <span className="muted">선금 {advance.toLocaleString()} / 잔금 {final.toLocaleString()}</span>
-      </div>
+      {isOwnedProduct ? (
+        <div className="project-money">
+          <span>월 반복 수입 {project.monthlyRevenue.toLocaleString()}만원</span>
+          <span className="muted">{project.revenueLabel}</span>
+        </div>
+      ) : (
+        <div className="project-money">
+          <span>총 {project.totalAmount.toLocaleString()}만원</span>
+          <span className="muted">선금 {advance.toLocaleString()} / 잔금 {final.toLocaleString()}</span>
+        </div>
+      )}
+
+      {project.status === 'operating' && (
+        <div className="project-info operating">
+          <span>선택 도메인 기반 자체 서비스</span>
+          <span>4턴마다 자동 정산</span>
+        </div>
+      )}
 
       {project.status === 'available' && (
         <div className="project-info">

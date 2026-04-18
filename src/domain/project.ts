@@ -1,5 +1,6 @@
 import { LV1_PROJECT_TEMPLATES } from '../constants/projectTemplates';
 import { employeeWeeklyContribution } from './employee';
+import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
 import type { Project } from '../types/project';
 
@@ -32,6 +33,63 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+const MAIN_REVENUE_PROJECTS: Record<Domain, Pick<Project, 'name' | 'monthlyRevenue' | 'revenueModel' | 'revenueLabel'>> = {
+  b2bsaas: {
+    name: 'B2B 업무 자동화 SaaS',
+    monthlyRevenue: 320,
+    revenueModel: 'subscription',
+    revenueLabel: 'MRR 구독 매출',
+  },
+  commerce: {
+    name: '니치 커머스 운영 플랫폼',
+    monthlyRevenue: 280,
+    revenueModel: 'commission',
+    revenueLabel: '거래 수수료 매출',
+  },
+  community: {
+    name: '콘텐츠 커뮤니티 광고 네트워크',
+    monthlyRevenue: 180,
+    revenueModel: 'ads',
+    revenueLabel: '광고 매출',
+  },
+  fintech: {
+    name: '핀테크 정산 API',
+    monthlyRevenue: 380,
+    revenueModel: 'subscription',
+    revenueLabel: 'API 사용료 매출',
+  },
+  healthcareit: {
+    name: '클리닉 예약/문진 서비스',
+    monthlyRevenue: 300,
+    revenueModel: 'subscription',
+    revenueLabel: '의료기관 구독 매출',
+  },
+};
+
+export function generateMainRevenueProject(domain: Domain): Project {
+  const template = MAIN_REVENUE_PROJECTS[domain];
+  return {
+    id: `main_${domain}_${generateId()}`,
+    name: template.name,
+    kind: 'ownedProduct',
+    level: 1,
+    totalAmount: 0,
+    monthlyRevenue: template.monthlyRevenue,
+    revenueModel: template.revenueModel,
+    revenueLabel: template.revenueLabel,
+    isMainRevenue: true,
+    advancePaid: true,
+    finalPaid: true,
+    turnsRequired: 0,
+    turnsElapsed: 0,
+    progress: 100,
+    assignedEmployeeIds: [],
+    status: 'operating',
+    clientSatisfaction: 100,
+    overtimeActive: false,
+  };
+}
+
 export function generateInitialProjects(count = 3): Project[] {
   const projects: Project[] = [];
   for (let i = 0; i < count; i += 1) {
@@ -39,8 +97,13 @@ export function generateInitialProjects(count = 3): Project[] {
     projects.push({
       id: generateId(),
       name: template.name,
+      kind: 'contract',
       level: 1,
       totalAmount: randInt(template.minAmount, template.maxAmount),
+      monthlyRevenue: 0,
+      revenueModel: 'contract',
+      revenueLabel: '외주 선금/잔금',
+      isMainRevenue: false,
       advancePaid: false,
       finalPaid: false,
       turnsRequired: randInt(template.minTurns, template.maxTurns),
@@ -217,4 +280,3 @@ export class ProjectPortfolio {
     };
   }
 }
-

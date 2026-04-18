@@ -12,7 +12,9 @@ export function TurnReportModal() {
 
   const capitalDelta = prev ? state.capital - prev.capital : 0;
   const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
-  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyBurn);
+  const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(state.activeProjects);
+  const monthlyNetBurn = EconomyLedger.monthlyNetBurn(state.employees, state.activeProjects);
+  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
 
   const recentLogs = state.eventLog.slice(-8).reverse();
 
@@ -48,6 +50,20 @@ export function TurnReportModal() {
               <span>월 예상 지출</span>
               <span>{monthlyBurn.toLocaleString()}만원</span>
             </div>
+            {recurringRevenue > 0 && (
+              <div className="report-row">
+                <span>월 반복 수입</span>
+                <span className="positive">+{recurringRevenue.toLocaleString()}만원</span>
+              </div>
+            )}
+            <div className="report-row">
+              <span>월 순현금흐름</span>
+              <span className={monthlyNetBurn <= 0 ? 'positive' : ''}>
+                {monthlyNetBurn <= 0
+                  ? `+${Math.abs(monthlyNetBurn).toLocaleString()}만원`
+                  : `-${monthlyNetBurn.toLocaleString()}만원`}
+              </span>
+            </div>
             <div className="report-row">
               <span>런웨이</span>
               <span className={runway < 8 ? 'warning' : ''}>
@@ -66,7 +82,9 @@ export function TurnReportModal() {
                 <div key={p.id} className="report-row">
                   <span>{p.name}</span>
                   <span>
-                    {p.status === 'completed'
+                    {p.status === 'operating'
+                      ? `주수입원 · 월 ${p.monthlyRevenue.toLocaleString()}만원`
+                      : p.status === 'completed'
                       ? '완료'
                       : `${Math.round(p.progress)}% (${p.turnsElapsed}/${p.turnsRequired}턴)`}
                   </span>

@@ -14,6 +14,17 @@ export class EconomyLedger {
     return this.monthlySalaries(employees) + this.monthlyOperatingCosts(employees.length);
   }
 
+  static monthlyRecurringRevenue(projects: Project[]): number {
+    return projects.reduce((sum, project) => {
+      if (project.kind !== 'ownedProduct' || project.status !== 'operating') return sum;
+      return sum + project.monthlyRevenue;
+    }, 0);
+  }
+
+  static monthlyNetBurn(employees: Employee[], projects: Project[]): number {
+    return this.monthlyBurn(employees) - this.monthlyRecurringRevenue(projects);
+  }
+
   static runwayInTurns(capital: number, monthlyBurn: number): number {
     if (monthlyBurn <= 0) return Infinity;
     return Math.max(0, Math.floor((capital / monthlyBurn) * 4));

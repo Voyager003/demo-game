@@ -2,7 +2,7 @@ import { DOMAIN_INITIAL_STATS } from '../constants/domainStats';
 import { EmployeeRoster, createFounder } from './employee';
 import { EconomyLedger } from './economy';
 import { FatigueMeter } from './fatigue';
-import { ProjectPortfolio, generateInitialProjects } from './project';
+import { ProjectPortfolio, generateInitialProjects, generateMainRevenueProject } from './project';
 import { TurnCycle } from './turn-cycle';
 import type { ActionType, GameState } from '../types/core';
 import type { Domain } from '../types/ceo';
@@ -41,6 +41,7 @@ export class GameSession {
     const stats = DOMAIN_INITIAL_STATS[domain];
     const fatigue = FatigueMeter.startTurn(stats.leadership).toSnapshot();
     const founder = createFounder(foundingMember);
+    const mainRevenueProject = generateMainRevenueProject(domain);
     const session = new GameSession({
       turn: 1,
       phase: 1,
@@ -50,11 +51,12 @@ export class GameSession {
       fatigue,
       employees: [founder],
       pendingResumes: [],
-      activeProjects: [],
+      activeProjects: [mainRevenueProject],
       availableProjects: generateInitialProjects(),
       completedProjectCount: 0,
       eventLog: [
         makeLog(1, `${founder.name}(개발자)이(가) 공동 창업 멤버로 합류했습니다.`),
+        makeLog(1, `[${mainRevenueProject.name}] 회사 주수입원으로 등록되었습니다.`),
       ],
       pendingEvents: [],
       gameStatus: 'playing',
@@ -301,8 +303,13 @@ export class GameSession {
   private applyWeeklySettlement(): void {
     this.traceFunction('GameSession.applyWeeklySettlement');
     if (this.state.turn % 4 !== 0) return;
+    const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(this.state.activeProjects);
     const salaries = EconomyLedger.monthlySalaries(this.state.employees);
     const operating = EconomyLedger.monthlyOperatingCosts(this.state.employees.length);
+    if (recurringRevenue > 0) {
+      this.state.capital += recurringRevenue;
+      this.addLog(`주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원`);
+    }
     this.state.capital -= salaries + operating;
     this.addLog(`인건비 차감: -${salaries.toLocaleString()}만원`);
     this.addLog(`운영비 차감: -${operating.toLocaleString()}만원`);
