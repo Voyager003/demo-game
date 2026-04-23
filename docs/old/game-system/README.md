@@ -10,7 +10,7 @@
 |------|------|------------|
 | [게임 진행](./game-process.md) | 턴 구조, 페이즈 순서, 행동 피로도, 쿨타임, 난이도 | Turn, Phase, Fatigue, Cooldown |
 | [경제 시스템](./game-economy.md) | 수입/지출 흐름, 재무 건전성, 런웨이 | Revenue, Cost, Runway |
-| [프로젝트 시스템](./game-project.md) | 외주/자체서비스 진행, 업무 배분, 기술 부채 | Project, MAU, TechDebt |
+| [프로젝트 시스템](./game-project.md) | 외주/주수입원 프로젝트 진행, 업무 배분, 기술 부채 | Project, MAU, TechDebt |
 | [케미스트리 시스템](./game-chemistry.md) | 팀 케미, 개인 간 케미, 문화 태그 | Chemistry, CultureTag |
 | [조직 구조](./game-organization.md) | 회사 성장 단계, 팀 분리, 채용/해고 | Hiring, Firing, TeamSplit |
 | [이벤트 시스템](./game-event.md) | 3레이어 이벤트, 연쇄 효과, 외부 이벤트 | Event, ChainReaction |
@@ -35,6 +35,8 @@
 ## 도메인 문서와의 관계
 
 시스템 문서는 **"어떻게 작동하는가"**를, [도메인 문서](../game-domain/README.md)는 **"무엇이 존재하는가"**를 다룹니다.
+
+우선순위 기준은 [게임 도메인 허브](../game-domain/README.md)를, 표준 용어는 [유비쿼터스 언어](../../new/game-domain/ubiquitous-language.md)를 정본으로 사용합니다.
 
 예시:
 - 시스템: "채용 시 이력서 풀에서 3~5장이 생성되고, 명성에 따라 품질이 달라진다" → [조직 구조](./game-organization.md)
