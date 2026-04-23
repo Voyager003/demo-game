@@ -1,10 +1,10 @@
 import { DOMAIN_INITIAL_STATS } from '../constants/domainStats';
 import { EmployeeRoster, createFounder } from './employee';
-import { EconomyLedger } from './economy';
 import { FatigueMeter } from './fatigue';
-import { resolveEconomyDeterministicMetrics } from './layers/deterministic-layer';
+import { createGameSessionDependencies, type GameSessionDependencies } from './game-session-dependencies';
 import { createEventLog, createFunctionLog } from './logging';
-import { ProjectPortfolio, generateInitialProjects, generateMainRevenueProject } from './project';
+import { ProjectPortfolio } from './project';
+import { TurnPhase } from './turn-phase';
 import { TurnCycle } from './turn-cycle';
 import type { ActionType, GameState } from '../types/core';
 import type { Domain } from '../types/ceo';
@@ -19,28 +19,28 @@ function cloneState<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function makeEventId(): string {
-  return 'evt_' + Math.random().toString(36).slice(2, 9);
-}
-
 export class GameSession {
   private state: GameState;
   private functionLogs: FunctionExecutionLogEntry[] = [];
   private functionLogSequence = 0;
+  private readonly deps: GameSessionDependencies;
 
-  constructor(state: GameState) {
+  constructor(state: GameState, deps: Partial<GameSessionDependencies> = {}) {
     this.state = cloneState(state);
+    this.deps = createGameSessionDependencies(deps);
   }
 
-  static startNewGame(domain: Domain, companyName: string, foundingMember: Employee): GameSession {
+  static startNewGame(
+    domain: Domain,
+    companyName: string,
+    foundingMember: Employee,
+    deps: Partial<GameSessionDependencies> = {},
+  ): GameSession {
+    const resolvedDeps = createGameSessionDependencies(deps);
     const stats = DOMAIN_INITIAL_STATS[domain];
     const fatigue = FatigueMeter.startTurn(stats.leadership).toSnapshot();
     const founderBase = createFounder(foundingMember);
-    const mainRevenueProjectBase = generateMainRevenueProject(domain);
+    const mainRevenueProjectBase = resolvedDeps.projectFactory.generateMainRevenueProject(domain);
 
     // 창업 멤버를 주수입원에 자동 배정
     const mainRevenueProject = {
@@ -62,7 +62,7 @@ export class GameSession {
       employees: [founder],
       pendingResumes: [],
       activeProjects: [mainRevenueProject],
-      availableProjects: generateInitialProjects(),
+      availableProjects: resolvedDeps.projectFactory.generateInitialProjects(),
       completedProjectCount: 0,
       eventLog: [
         createEventLog({
@@ -127,7 +127,7 @@ export class GameSession {
       gameStatus: 'playing',
       crisisGraceTurnsLeft: 0,
       endingGrade: null,
-    });
+    }, resolvedDeps);
     session.traceFunction('GameSession.startNewGame', `domain=${domain}`);
     return session;
   }
@@ -138,7 +138,8 @@ export class GameSession {
 
   advancePhase(): GameSession {
     this.traceFunction('GameSession.advancePhase');
-    if (this.state.phase === 1) {
+    const phase = TurnPhase.from(this.state.phase);
+    if (phase.isSetup()) {
       const next = new TurnCycle(this.state.turn, this.state.phase).toDecisionPhase();
       this.state.pendingEvents = [
         ...this.state.pendingEvents,
@@ -148,11 +149,11 @@ export class GameSession {
       return this;
     }
 
-    if (this.state.phase === 2) {
+    if (phase.isDecision()) {
       return this.runAutomaticPhases();
     }
 
-    if (this.state.phase === 5) {
+    if (phase.isReport()) {
       const next = new TurnCycle(this.state.turn, this.state.phase).startNextTurn();
       const portfolio = new ProjectPortfolio(
         this.state.activeProjects,
@@ -183,8 +184,8 @@ export class GameSession {
   postJobListing(): GameSession {
     this.traceFunction('GameSession.postJobListing');
     if (!this.spendAction('postJobListing')) return this;
-    const resumes = EmployeeRoster.generateResumes(
-      randInt(3, 5),
+    const resumes = this.deps.employeeFactory.generateResumes(
+      this.deps.random.nextInt(3, 5),
       INITIAL_REPUTATION,
       this.state.turn,
     );
@@ -518,233 +519,51 @@ export class GameSession {
 
   private applyWeeklySettlement(): void {
     this.traceFunction('GameSession.applyWeeklySettlement');
-    if (this.state.turn % 4 !== 0) return;
-    const revenueResolution = resolveEconomyDeterministicMetrics(
-      this.state.activeProjects,
-      this.state.employees,
-    );
-    const baseRevenue = revenueResolution.baseRevenue;
-    const recurringRevenue = revenueResolution.recurringRevenue.finalValue;
-    const salaries = EconomyLedger.monthlySalaries(this.state.employees);
-    const operating = EconomyLedger.monthlyOperatingCosts(this.state.employees.length);
-    if (recurringRevenue > 0) {
-      this.state.capital += recurringRevenue;
-      const revenueMessage =
-        recurringRevenue < baseRevenue
-          ? `주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원 (기본 ${baseRevenue.toLocaleString()}만원 중 외주 투입으로 감소)`
-          : `주수입원 매출 입금: +${recurringRevenue.toLocaleString()}만원`;
-      this.addLog(revenueMessage, 'deterministic', {
-        source: 'GameSession.applyWeeklySettlement',
-        layerTrace: {
-          ...revenueResolution.recurringRevenue.trace,
-          trigger: `turn=${this.state.turn}, ${revenueResolution.recurringRevenue.trace.trigger}`,
-          effects: [
-            ...revenueResolution.recurringRevenue.trace.effects,
-            recurringRevenue < baseRevenue
-              ? '외주 투입으로 주수입원 실효 매출 감소'
-              : '주수입원 실효 매출이 기본 매출 이상 유지',
-            'capital에 월 반복 실효 수입 입금',
-            '주수입원 프로젝트는 완료/잔금 흐름에 포함하지 않음',
-          ],
-        },
+    const transition = this.deps.monthlySettlementPolicy.apply({
+      turn: this.state.turn,
+      capital: this.state.capital,
+      activeProjects: this.state.activeProjects,
+      employees: this.state.employees,
+    });
+    this.state.capital = transition.capital;
+    this.state.activeProjects = transition.activeProjects;
+    for (const log of transition.logs) {
+      this.addLog(log.message, log.layer ?? 'deterministic', {
+        source: log.source,
+        layerTrace: log.layerTrace,
       });
     }
-    this.state.capital -= salaries + operating;
-    this.addLog(`인건비 차감: -${salaries.toLocaleString()}만원`, 'deterministic', {
-      source: 'GameSession.applyWeeklySettlement',
-      layerTrace: {
-        rule: '월 인건비 정산',
-        trigger: 'turn % 4 === 0 월 정산',
-        inputs: [
-          `employees=${this.state.employees.length}명`,
-          `salaries=${salaries}만원`,
-        ],
-        effects: [
-          'capital에서 직원별 월 환산 급여 합계 차감',
-        ],
-      },
-    });
-    this.addLog(`운영비 차감: -${operating.toLocaleString()}만원`, 'deterministic', {
-      source: 'GameSession.applyWeeklySettlement',
-      layerTrace: {
-        rule: '월 운영비 정산',
-        trigger: 'turn % 4 === 0 월 정산',
-        inputs: [
-          `employeeCount=${this.state.employees.length}`,
-          `operating=${operating}만원`,
-        ],
-        effects: [
-          'capital에서 기본 운영비와 인원 비례 운영비 차감',
-        ],
-      },
-    });
-
-    const completedUnpaid = this.state.activeProjects.filter(
-      (project) => project.status === 'completed' && !project.finalPaid,
-    );
-
-    this.state.activeProjects = this.state.activeProjects.map((project) => {
-      if (!completedUnpaid.some((completed) => completed.id === project.id)) return project;
-      const payment = EconomyLedger.finalPayment(project);
-      this.state.capital += payment;
-      this.addLog(`[${project.name}] 잔금 수령: +${payment.toLocaleString()}만원`, 'deterministic', {
-        source: 'GameSession.applyWeeklySettlement',
-        layerTrace: {
-          rule: '완료 외주 프로젝트 잔금 정산',
-          trigger: 'status=completed이고 finalPaid=false인 프로젝트 존재',
-          inputs: [
-            `project=${project.name}`,
-            `totalAmount=${project.totalAmount}만원`,
-            `clientSatisfaction=${project.clientSatisfaction}%`,
-            `payment=${payment}만원`,
-          ],
-          effects: [
-            'capital에 만족도 보정 잔금 입금',
-            'project.finalPaid=true',
-          ],
-        },
-      });
-      return { ...project, finalPaid: true };
-    });
   }
 
   private updateCrisisState(): void {
     this.traceFunction('GameSession.updateCrisisState');
-    if (this.state.capital > 0 && this.state.gameStatus === 'crisis') {
-      this.state.gameStatus = 'playing';
-      this.state.crisisGraceTurnsLeft = 0;
-      this.addLog('위기를 벗어났습니다.', 'deterministic', {
-        source: 'GameSession.updateCrisisState',
-        layerTrace: {
-          rule: '자본 회복 위기 해제',
-          trigger: 'capital > 0이고 gameStatus=crisis',
-          inputs: [
-            `capital=${this.state.capital}만원`,
-          ],
-          effects: [
-            'gameStatus=playing',
-            'crisisGraceTurnsLeft=0',
-          ],
-        },
+    const transition = this.deps.crisisPolicy.evaluate({
+      capital: this.state.capital,
+      gameStatus: this.state.gameStatus,
+      crisisGraceTurnsLeft: this.state.crisisGraceTurnsLeft,
+      activeProjects: this.state.activeProjects,
+      endingGrade: this.state.endingGrade,
+    });
+    this.state.gameStatus = transition.gameStatus;
+    this.state.crisisGraceTurnsLeft = transition.crisisGraceTurnsLeft;
+    this.state.endingGrade = transition.endingGrade;
+    for (const log of transition.logs) {
+      this.addLog(log.message, log.layer ?? 'deterministic', {
+        source: log.source,
+        layerTrace: log.layerTrace,
       });
-      return;
-    }
-
-    if (this.state.capital <= 0 && this.state.gameStatus === 'playing') {
-      const hasReceivables = this.state.activeProjects.some(
-        (project) => project.status === 'completed' && !project.finalPaid,
-      );
-      this.state.gameStatus = 'crisis';
-      this.state.crisisGraceTurnsLeft = hasReceivables ? 8 : 4;
-      this.addLog('자본 고갈! 위기 상태 진입. 유예 기간이 시작됩니다.', 'chain', {
-        source: 'GameSession.updateCrisisState',
-        layerTrace: {
-          rule: '자본 고갈 위기 진입',
-          trigger: 'capital <= 0이고 gameStatus=playing',
-          inputs: [
-            `capital=${this.state.capital}만원`,
-            `hasReceivables=${hasReceivables}`,
-          ],
-          effects: [
-            'gameStatus=crisis',
-            `crisisGraceTurnsLeft=${this.state.crisisGraceTurnsLeft}`,
-          ],
-        },
-      });
-      return;
-    }
-
-    if (this.state.capital <= 0 && this.state.gameStatus === 'crisis') {
-      this.state.crisisGraceTurnsLeft = Math.max(0, this.state.crisisGraceTurnsLeft - 1);
-      if (this.state.crisisGraceTurnsLeft === 0) {
-        this.state.gameStatus = 'ended';
-        this.state.endingGrade = 'F';
-      }
     }
   }
 
   private generatePendingEvents(): PendingEvent[] {
     this.traceFunction('GameSession.generatePendingEvents');
-    const events: PendingEvent[] = [];
-    const existingKeys = new Set(
-      this.state.pendingEvents.map((event) => `${event.type}:${event.targetId ?? 'global'}`),
-    );
-
-    for (const employee of this.state.employees) {
-      if (
-        employee.probationTurnsLeft === 0 &&
-        employee.employmentType === 'regular' &&
-        !existingKeys.has(`probationConversion:${employee.id}`)
-      ) {
-        events.push({
-          id: makeEventId(),
-          type: 'probationConversion',
-          layer: 'deterministic',
-          title: `${employee.name} 수습 전환`,
-          description: `${employee.name}(${employee.role})의 수습 기간이 종료되었습니다. 정규직으로 전환하시겠습니까?`,
-          choices: [
-            { label: '정규직 전환', effect: '직원 유지, 충성도 +2' },
-            { label: '계약 종료', effect: '직원 퇴사' },
-          ],
-          targetId: employee.id,
-        });
-      }
-
-      const tenure = this.state.turn - employee.hiredOnTurn;
-      if (
-        employee.commonStats.loyalty <= 1 &&
-        tenure > 0 &&
-        tenure % 12 === 0 &&
-        employee.probationTurnsLeft < 0 &&
-        !existingKeys.has(`salaryNegotiation:${employee.id}`)
-      ) {
-        events.push({
-          id: makeEventId(),
-          type: 'salaryNegotiation',
-          layer: 'deterministic',
-          title: `${employee.name} 연봉 협상 요청`,
-          description: `${employee.name}이(가) 연봉 인상을 요청합니다. 현재 연봉: ${employee.salary.toLocaleString()}만원`,
-          choices: [
-            { label: '10% 인상 수락', effect: '충성도 +2, 연봉 +10%' },
-            { label: '5% 인상 수락', effect: '충성도 +1, 연봉 +5%' },
-            { label: '거절', effect: '충성도 -2' },
-          ],
-          targetId: employee.id,
-        });
-      }
-    }
-
-    for (const project of this.state.activeProjects) {
-      const turnsRemaining = project.turnsRequired - project.turnsElapsed;
-      if (
-        project.status === 'active' &&
-        turnsRemaining === 3 &&
-        !existingKeys.has(`deadlineApproaching:${project.id}`)
-      ) {
-        events.push({
-          id: makeEventId(),
-          type: 'deadlineApproaching',
-          layer: 'deterministic',
-          title: `납기 임박: ${project.name}`,
-          description: `[${project.name}] 납기까지 ${turnsRemaining}턴 남았습니다. 현재 진척도: ${Math.round(project.progress)}%`,
-          choices: [{ label: '확인', effect: '알림 확인' }],
-          targetId: project.id,
-        });
-      }
-    }
-
-    if (this.state.capital <= 500 && this.state.capital > 0 && !existingKeys.has('capitalCrisis:global')) {
-      events.push({
-        id: makeEventId(),
-        type: 'capitalCrisis',
-        layer: 'deterministic',
-        title: '자본 위기 경고',
-        description: `잔여 자본이 ${this.state.capital.toLocaleString()}만원입니다. 런웨이를 확인하세요.`,
-        choices: [{ label: '확인', effect: '알림 확인' }],
-      });
-    }
-
-    return events;
+    return this.deps.pendingEventFactory.create({
+      turn: this.state.turn,
+      capital: this.state.capital,
+      employees: this.state.employees,
+      activeProjects: this.state.activeProjects,
+      pendingEvents: this.state.pendingEvents,
+    });
   }
 
   private resolveProbationEvent(employeeId: string, choiceIndex: number): void {
@@ -752,61 +571,22 @@ export class GameSession {
       'GameSession.resolveProbationEvent',
       `employeeId=${employeeId}, choiceIndex=${choiceIndex}`,
     );
-    const employee = this.state.employees.find((candidate) => candidate.id === employeeId);
-    if (!employee) return;
-    if (choiceIndex === 0) {
-      this.state.employees = this.state.employees.map((candidate) =>
-        candidate.id === employeeId
-          ? {
-              ...candidate,
-              probationTurnsLeft: -1,
-              commonStats: {
-                ...candidate.commonStats,
-                loyalty: Math.min(5, candidate.commonStats.loyalty + 2),
-              },
-            }
-          : candidate,
-      );
-      this.addLog(`${employee.name} 정규직 전환`, 'deterministic', {
-        source: 'GameSession.resolveProbationEvent',
-        layerTrace: {
-          rule: '수습 종료 선택지: 정규직 전환',
-          trigger: 'probationConversion 이벤트에서 choiceIndex=0 선택',
-          inputs: [
-            `employee=${employee.name}`,
-            `employeeId=${employeeId}`,
-            `choiceIndex=${choiceIndex}`,
-          ],
-          effects: [
-            'employee.probationTurnsLeft=-1',
-            'employee.commonStats.loyalty +2',
-          ],
-        },
+    const resolution = this.deps.probationEventResolver.resolve(
+      this.state.employees,
+      this.state.activeProjects,
+      this.state.availableProjects,
+      employeeId,
+      choiceIndex,
+    );
+    this.state.employees = resolution.employees;
+    this.state.activeProjects = resolution.activeProjects;
+    this.state.availableProjects = resolution.availableProjects;
+    for (const log of resolution.logs) {
+      this.addLog(log.message, log.layer ?? 'deterministic', {
+        source: log.source,
+        layerTrace: log.layerTrace,
       });
-      return;
     }
-
-    this.state.employees = new EmployeeRoster(this.state.employees).remove(employeeId).toSnapshots();
-    const portfolio = new ProjectPortfolio(this.state.activeProjects, this.state.availableProjects).removeEmployee(employeeId);
-    const snapshots = portfolio.toSnapshots();
-    this.state.activeProjects = snapshots.activeProjects;
-    this.state.availableProjects = snapshots.availableProjects;
-    this.addLog(`${employee.name} 계약 종료`, 'deterministic', {
-      source: 'GameSession.resolveProbationEvent',
-      layerTrace: {
-        rule: '수습 종료 선택지: 계약 종료',
-        trigger: 'probationConversion 이벤트에서 정규직 전환 외 선택',
-        inputs: [
-          `employee=${employee.name}`,
-          `employeeId=${employeeId}`,
-          `choiceIndex=${choiceIndex}`,
-        ],
-        effects: [
-          'employees에서 대상 직원 제거',
-          '모든 프로젝트 assignedEmployeeIds에서 대상 직원 제거',
-        ],
-      },
-    });
   }
 
   private resolveSalaryEvent(employeeId: string, choiceIndex: number): void {
@@ -814,64 +594,20 @@ export class GameSession {
       'GameSession.resolveSalaryEvent',
       `employeeId=${employeeId}, choiceIndex=${choiceIndex}`,
     );
-    const target = this.state.employees.find((employee) => employee.id === employeeId);
-    if (!target) return;
-    const oldSalary = target.salary;
-    this.state.employees = this.state.employees.map((employee) => {
-      if (employee.id !== employeeId) return employee;
-      if (choiceIndex === 0) {
-        return {
-          ...employee,
-          salary: Math.round(employee.salary * 1.1),
-          commonStats: {
-            ...employee.commonStats,
-            loyalty: Math.min(5, employee.commonStats.loyalty + 2),
-          },
-        };
-      }
-      if (choiceIndex === 1) {
-        return {
-          ...employee,
-          salary: Math.round(employee.salary * 1.05),
-          commonStats: {
-            ...employee.commonStats,
-            loyalty: Math.min(5, employee.commonStats.loyalty + 1),
-          },
-        };
-      }
-      return {
-        ...employee,
-        commonStats: {
-          ...employee.commonStats,
-          loyalty: Math.max(-1, employee.commonStats.loyalty - 2),
-        },
-      };
-    });
-    const updated = this.state.employees.find((employee) => employee.id === employeeId);
-    if (!updated) return;
-    const effect =
-      choiceIndex === 0
-        ? '연봉 10% 인상, loyalty +2'
-        : choiceIndex === 1
-        ? '연봉 5% 인상, loyalty +1'
-        : '연봉 유지, loyalty -2';
-    this.addLog(`${updated.name} 연봉 협상 처리: ${effect}`, 'deterministic', {
-      source: 'GameSession.resolveSalaryEvent',
-      layerTrace: {
-        rule: '연봉 협상 선택지 처리',
-        trigger: 'salaryNegotiation 이벤트 선택',
-        inputs: [
-          `employee=${updated.name}`,
-          `employeeId=${employeeId}`,
-          `choiceIndex=${choiceIndex}`,
-          `oldSalary=${oldSalary}만원`,
-          `newSalary=${updated.salary}만원`,
-        ],
-        effects: [
-          effect,
-        ],
-      },
-    });
+    const resolution = this.deps.salaryNegotiationResolver.resolve(
+      this.state.employees,
+      this.state.activeProjects,
+      this.state.availableProjects,
+      employeeId,
+      choiceIndex,
+    );
+    this.state.employees = resolution.employees;
+    for (const log of resolution.logs) {
+      this.addLog(log.message, log.layer ?? 'deterministic', {
+        source: log.source,
+        layerTrace: log.layerTrace,
+      });
+    }
   }
 
   private addLog(
