@@ -19,7 +19,7 @@ class StubIdGenerator implements IdGenerator {
 }
 
 describe('PendingEventFactory', () => {
-  it('creates deterministic probation, salary, deadline, and capital warning events', () => {
+  it('creates deterministic probation, salary, deadline, capital warning, and investment result events', () => {
     const probationEmployee = testEmployee({
       id: 'emp',
       name: 'Probation Employee',
@@ -58,6 +58,7 @@ describe('PendingEventFactory', () => {
       'salary-1',
       'deadline-1',
       'capital-1',
+      'investment-1',
     ]));
 
     const events = factory.create(testGameState({
@@ -66,6 +67,22 @@ describe('PendingEventFactory', () => {
       employees: [probationEmployee, salaryEmployee],
       activeProjects: [project],
       pendingEvents: [],
+      investment: {
+        status: 'underReview',
+        reviewEndsOnTurn: 13,
+        cooldownEndsOnTurn: null,
+        attemptCount: 1,
+        pendingResult: {
+          success: true,
+          deterministicScore: 60,
+          successProbability: 0.6,
+          capitalDelta: 1600,
+          companyRatingDelta: 8,
+          employeeLoyaltyDelta: 1,
+          employeeGrowthRateDelta: 1,
+          summary: ['potential=50'],
+        },
+      },
     }));
 
     expect(events.map((event) => event.type)).toEqual([
@@ -73,6 +90,7 @@ describe('PendingEventFactory', () => {
       'salaryNegotiation',
       'deadlineApproaching',
       'capitalCrisis',
+      'investmentResult',
     ]);
     expect(events[0]?.id).toBe('evt_probation-1');
     expect(events[1]?.id).toBe('evt_salary-1');

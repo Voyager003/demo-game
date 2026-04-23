@@ -109,6 +109,36 @@ describe('useGameStore', () => {
     useGameStore.getState().clearFunctionLogs();
     expect(useGameStore.getState().functionLogs).toEqual([]);
   });
+
+  it('starts an investment round and stores the review state', () => {
+    useGameStore.setState({
+      state: testGameState({
+        phase: 2,
+        activeProjects: [
+          testProject({
+            id: 'main',
+            kind: 'ownedProduct',
+            status: 'operating',
+            isMainRevenue: true,
+            monthlyRevenue: 400,
+            assignedEmployeeIds: ['emp'],
+          }),
+        ],
+        employees: [testEmployee({ id: 'emp' })],
+        completedProjectCount: 2,
+        companyRating: 28,
+      }),
+      prevTurnSnapshot: null,
+      functionLogs: [],
+    });
+
+    useGameStore.getState().startInvestmentRound();
+
+    const state = useGameStore.getState().state;
+    expect(state?.investment.status).toBe('underReview');
+    expect(state?.investment.pendingResult).not.toBeNull();
+    expect(useGameStore.getState().functionLogs.map((log) => log.functionName)).toContain('GameSession.startInvestmentRound');
+  });
 });
 
 describe('useUIStore', () => {

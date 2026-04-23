@@ -22,6 +22,7 @@ export function testCooldowns(overrides: Partial<Record<ActionType, number>> = {
     signContract: 0,
     changeAssignment: 0,
     orderOvertime: 0,
+    startInvestmentRound: 0,
     ...overrides,
   };
 }
@@ -153,6 +154,7 @@ export function testGameState(overrides: Partial<GameState> = {}): GameState {
       },
     },
     capital: 2000,
+    companyRating: 20,
     fatigue: {
       current: 9,
       max: 9,
@@ -165,6 +167,13 @@ export function testGameState(overrides: Partial<GameState> = {}): GameState {
     completedProjectCount: 0,
     eventLog: [],
     pendingEvents: [],
+    investment: {
+      status: 'idle',
+      reviewEndsOnTurn: null,
+      cooldownEndsOnTurn: null,
+      pendingResult: null,
+      attemptCount: 0,
+    },
     gameStatus: 'playing',
     crisisGraceTurnsLeft: 0,
     endingGrade: null,

@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { GameSession } from './game-session';
+import type { RandomSource } from './generation';
 import { testCooldowns, testEmployee, testGameState, testPendingEvent, testProject } from '../test/fixtures';
+
+class StubRandomSource implements RandomSource {
+  private readonly values: number[];
+
+  constructor(values: number[]) {
+    this.values = values;
+  }
+
+  next(): number {
+    return this.values.shift() ?? 0;
+  }
+
+  nextInt(min: number, max: number): number {
+    return min + Math.floor(this.next() * (max - min + 1));
+  }
+
+  pick<T>(items: readonly T[]): T {
+    return items[Math.floor(this.next() * items.length)] ?? items[0]!;
+  }
+}
 
 describe('GameSession', () => {
   it('starts a new game with a reusable session state, founder, main revenue project, and logs', () => {
@@ -37,6 +58,7 @@ describe('GameSession', () => {
     });
     expect(state.employees[0].projectAssignments).toEqual({ [state.activeProjects[0].id]: 100 });
     expect(state.eventLog).toHaveLength(3);
+    expect(state.companyRating).toBe(20);
     expect(functionLogs.map((log) => log.functionName)).toEqual(['GameSession.startNewGame']);
   });
 
@@ -409,6 +431,107 @@ describe('GameSession', () => {
       'GameSession.resolveProbationEvent',
       'GameSession.resolveSalaryEvent',
     ]);
+  });
+
+  it('starts an investment round, generates a result event, and applies success rewards', () => {
+    const session = new GameSession(testGameState({
+      turn: 3,
+      phase: 2,
+      companyRating: 30,
+      completedProjectCount: 2,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 420,
+          assignedEmployeeIds: ['emp'],
+        }),
+      ],
+      employees: [testEmployee({
+        id: 'emp',
+        commonStats: {
+          stamina: 2,
+          communication: 2,
+          mental: 2,
+          growthRate: 2,
+          loyalty: 2,
+        },
+      })],
+    }), {
+      random: new StubRandomSource([0.01]),
+    });
+
+    session.startInvestmentRound();
+    expect(session.toState().investment.status).toBe('underReview');
+
+    const reportPhase = new GameSession(testGameState({
+      turn: 5,
+      phase: 1,
+      companyRating: session.toState().companyRating,
+      completedProjectCount: session.toState().completedProjectCount,
+      activeProjects: session.toState().activeProjects,
+      employees: session.toState().employees,
+      investment: session.toState().investment,
+    }), {
+      random: new StubRandomSource([0.01]),
+    });
+    reportPhase.advancePhase();
+    const event = reportPhase.toState().pendingEvents.find((candidate) => candidate.type === 'investmentResult');
+    expect(event).toBeTruthy();
+
+    reportPhase.resolveEvent(event!.id, 0);
+    const state = reportPhase.toState();
+    expect(state.capital).toBeGreaterThan(2000);
+    expect(state.companyRating).toBeGreaterThan(30);
+    expect(state.employees[0]?.commonStats).toMatchObject({
+      loyalty: 3,
+      growthRate: 3,
+    });
+    expect(state.investment.status).toBe('cooldown');
+    expect(state.eventLog.some((log) => log.source === 'GameSession.resolveInvestmentEvent')).toBe(true);
+  });
+
+  it('applies investment failure penalties and blocks retries during cooldown', () => {
+    const session = new GameSession(testGameState({
+      turn: 4,
+      phase: 2,
+      companyRating: 20,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 200,
+        }),
+      ],
+    }), {
+      random: new StubRandomSource([0.99]),
+    });
+
+    session.startInvestmentRound();
+    const reviewState = session.toState();
+    const resolver = new GameSession(testGameState({
+      turn: 6,
+      phase: 1,
+      companyRating: reviewState.companyRating,
+      activeProjects: reviewState.activeProjects,
+      employees: reviewState.employees,
+      investment: reviewState.investment,
+    }), {
+      random: new StubRandomSource([0.99]),
+    });
+    resolver.advancePhase();
+    const event = resolver.toState().pendingEvents.find((candidate) => candidate.type === 'investmentResult');
+    resolver.resolveEvent(event!.id, 0);
+
+    const failed = resolver.toState();
+    expect(failed.capital).toBe(2000);
+    expect(failed.companyRating).toBeLessThan(20);
+    expect(failed.investment.status).toBe('cooldown');
+    expect(resolver.canPerform('startInvestmentRound')).toBe(false);
   });
 
   it('resolves termination probation choices and salary accept/reject choices', () => {

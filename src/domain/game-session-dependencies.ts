@@ -3,6 +3,10 @@ import { defaultProjectFactory, ProjectFactory } from './factories/project-facto
 import type { RandomSource } from './generation';
 import { MathRandomSource } from './generation';
 import {
+  InvestmentResultResolver,
+  InvestmentReviewPolicy,
+} from './policies/investment-policies';
+import {
   CrisisPolicy,
   MonthlySettlementPolicy,
   PendingEventFactory,
@@ -19,13 +23,16 @@ export interface GameSessionDependencies {
   monthlySettlementPolicy: MonthlySettlementPolicy;
   probationEventResolver: ProbationEventResolver;
   salaryNegotiationResolver: SalaryNegotiationResolver;
+  investmentReviewPolicy: InvestmentReviewPolicy;
+  investmentResultResolver: InvestmentResultResolver;
 }
 
 export function createGameSessionDependencies(
   overrides: Partial<GameSessionDependencies> = {},
 ): GameSessionDependencies {
+  const random = overrides.random ?? new MathRandomSource();
   return {
-    random: overrides.random ?? new MathRandomSource(),
+    random,
     employeeFactory: overrides.employeeFactory ?? defaultEmployeeFactory,
     projectFactory: overrides.projectFactory ?? defaultProjectFactory,
     pendingEventFactory: overrides.pendingEventFactory ?? new PendingEventFactory(),
@@ -33,5 +40,7 @@ export function createGameSessionDependencies(
     monthlySettlementPolicy: overrides.monthlySettlementPolicy ?? new MonthlySettlementPolicy(),
     probationEventResolver: overrides.probationEventResolver ?? new ProbationEventResolver(),
     salaryNegotiationResolver: overrides.salaryNegotiationResolver ?? new SalaryNegotiationResolver(),
+    investmentReviewPolicy: overrides.investmentReviewPolicy ?? new InvestmentReviewPolicy(random),
+    investmentResultResolver: overrides.investmentResultResolver ?? new InvestmentResultResolver(),
   };
 }

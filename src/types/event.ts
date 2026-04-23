@@ -6,6 +6,7 @@ export type EventType =
   | 'probationConversion'
   | 'salaryNegotiation'
   | 'deadlineApproaching'
+  | 'investmentResult'
   | 'projectCompleted'
   | 'projectFailed'
   | 'employeeQuit'

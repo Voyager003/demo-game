@@ -35,6 +35,9 @@ export interface EventResolution {
   employees: Employee[];
   activeProjects: Project[];
   availableProjects: Project[];
+  capital?: number;
+  companyRating?: number;
+  investment?: GameState['investment'];
   logs: SessionLogSpec[];
 }
 
@@ -45,7 +48,9 @@ export class PendingEventFactory {
     this.ids = ids;
   }
 
-  create(state: Pick<GameState, 'turn' | 'capital' | 'employees' | 'activeProjects' | 'pendingEvents'>): PendingEvent[] {
+  create(
+    state: Pick<GameState, 'turn' | 'capital' | 'employees' | 'activeProjects' | 'pendingEvents' | 'investment'>,
+  ): PendingEvent[] {
     const events: PendingEvent[] = [];
     const existingKeys = new Set(
       state.pendingEvents.map((event) => `${event.type}:${event.targetId ?? 'global'}`),
@@ -122,6 +127,26 @@ export class PendingEventFactory {
         title: '자본 위기 경고',
         description: `잔여 자본이 ${state.capital.toLocaleString()}만원입니다. 런웨이를 확인하세요.`,
         choices: [{ label: '확인', effect: '알림 확인' }],
+      });
+    }
+
+    const pendingInvestmentResult = state.investment.pendingResult;
+    if (
+      state.investment.status === 'underReview'
+      && pendingInvestmentResult
+      && state.investment.reviewEndsOnTurn !== null
+      && state.turn >= state.investment.reviewEndsOnTurn
+      && !existingKeys.has('investmentResult:global')
+    ) {
+      events.push({
+        id: this.ids.next('evt_'),
+        type: 'investmentResult',
+        layer: 'probabilistic',
+        title: pendingInvestmentResult.success ? '투자 심사 통과' : '투자 심사 보류',
+        description: pendingInvestmentResult.success
+          ? `투자 심사가 완료되었습니다. 성공 확률 ${Math.round(pendingInvestmentResult.successProbability * 100)}%의 결과가 확정되었습니다.`
+          : `투자 심사가 완료되었습니다. 성공 확률 ${Math.round(pendingInvestmentResult.successProbability * 100)}%였지만 이번 라운드는 실패했습니다.`,
+        choices: [{ label: '결과 확인', effect: pendingInvestmentResult.success ? '투자금 수령 및 조직 사기 상승' : '회사 평가 하락 및 재도전 대기' }],
       });
     }
 

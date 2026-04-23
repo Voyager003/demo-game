@@ -16,7 +16,29 @@ export type ActionType =
   | 'adjustSalary'
   | 'signContract'
   | 'changeAssignment'
-  | 'orderOvertime';
+  | 'orderOvertime'
+  | 'startInvestmentRound';
+
+export type InvestmentStatus = 'idle' | 'underReview' | 'cooldown';
+
+export interface PendingInvestmentResult {
+  success: boolean;
+  deterministicScore: number;
+  successProbability: number;
+  capitalDelta: number;
+  companyRatingDelta: number;
+  employeeLoyaltyDelta: number;
+  employeeGrowthRateDelta: number;
+  summary: string[];
+}
+
+export interface InvestmentState {
+  status: InvestmentStatus;
+  reviewEndsOnTurn: number | null;
+  cooldownEndsOnTurn: number | null;
+  pendingResult: PendingInvestmentResult | null;
+  attemptCount: number;
+}
 
 export interface FatigueState {
   current: number;
@@ -34,6 +56,7 @@ export interface GameState {
 
   // 경제
   capital: number; // 단위: 만원
+  companyRating: number; // 0~100
 
   // 피로도
   fatigue: FatigueState;
@@ -50,6 +73,7 @@ export interface GameState {
   // 이벤트
   eventLog: LogEntry[];
   pendingEvents: PendingEvent[];
+  investment: InvestmentState;
 
   // 게임 상태
   gameStatus: GameStatus;

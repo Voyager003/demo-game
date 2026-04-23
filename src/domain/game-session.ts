@@ -14,7 +14,7 @@ import type { Employee } from '../types/employee';
 import type { LogEntry, PendingEvent } from '../types/event';
 import type { LayerTraceInput } from './logging';
 
-const INITIAL_REPUTATION = 20;
+const INITIAL_COMPANY_RATING = 20;
 
 function cloneState<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -59,6 +59,7 @@ export class GameSession {
       companyName,
       ceo: { domain, stats },
       capital: 2000,
+      companyRating: INITIAL_COMPANY_RATING,
       fatigue,
       employees: [founder],
       pendingResumes: [],
@@ -125,6 +126,13 @@ export class GameSession {
         }),
       ],
       pendingEvents: [],
+      investment: {
+        status: 'idle',
+        reviewEndsOnTurn: null,
+        cooldownEndsOnTurn: null,
+        pendingResult: null,
+        attemptCount: 0,
+      },
       gameStatus: 'playing',
       crisisGraceTurnsLeft: 0,
       endingGrade: null,
@@ -134,11 +142,16 @@ export class GameSession {
   }
 
   canPerform(action: ActionType): boolean {
+    if (action === 'startInvestmentRound') {
+      this.refreshInvestmentState();
+      if (this.state.investment.status !== 'idle') return false;
+    }
     return new FatigueMeter(this.state.fatigue).canPerform(action);
   }
 
   advancePhase(): GameSession {
     this.traceFunction('GameSession.advancePhase');
+    this.refreshInvestmentState();
     const phase = TurnPhase.from(this.state.phase);
     if (phase.isSetup()) {
       const next = new TurnCycle(this.state.turn, this.state.phase).toDecisionPhase();
@@ -178,6 +191,7 @@ export class GameSession {
 
   endTurn(): GameSession {
     this.traceFunction('GameSession.endTurn');
+    this.refreshInvestmentState();
     if (this.state.phase !== 2) return this;
     return this.runAutomaticPhases();
   }
@@ -187,7 +201,7 @@ export class GameSession {
     if (!this.spendAction('postJobListing')) return this;
     const resumes = this.deps.employeeFactory.generateResumes(
       this.deps.random.nextInt(3, 5),
-      INITIAL_REPUTATION,
+      this.state.companyRating,
       this.state.turn,
     );
     this.state.pendingResumes = resumes;
@@ -197,7 +211,7 @@ export class GameSession {
         rule: '채용 공고 실행',
         trigger: 'postJobListing 액션 성공',
         inputs: [
-          `reputation=${INITIAL_REPUTATION}`,
+          `companyRating=${this.state.companyRating}`,
           `turn=${this.state.turn}`,
           `generatedResumes=${resumes.length}장`,
         ],
@@ -206,6 +220,39 @@ export class GameSession {
           'postJobListing 피로도/쿨타임 적용',
         ],
       },
+    });
+    return this;
+  }
+
+  startInvestmentRound(): GameSession {
+    this.traceFunction('GameSession.startInvestmentRound');
+    this.refreshInvestmentState();
+    if (this.state.investment.status !== 'idle' || !this.spendAction('startInvestmentRound')) return this;
+
+    const review = this.deps.investmentReviewPolicy.start({
+      turn: this.state.turn,
+      ceo: this.state.ceo,
+      companyRating: this.state.companyRating,
+      completedProjectCount: this.state.completedProjectCount,
+      activeProjects: this.state.activeProjects,
+      employees: this.state.employees,
+    }, this.state.investment);
+    this.state.investment = review.investment;
+
+    this.addLog('투자 유치 라운드를 시작했습니다.', 'deterministic', {
+      source: 'GameSession.startInvestmentRound',
+      layerTrace: {
+        ...review.deterministicTrace,
+        effects: [
+          ...review.deterministicTrace.effects,
+          `successProbability=${Math.round((review.investment.pendingResult?.successProbability ?? 0) * 100)}%`,
+          'startInvestmentRound 피로도/쿨타임 적용',
+        ],
+      },
+    });
+    this.addLog('투자 심사 확률이 계산되었습니다.', 'probabilistic', {
+      source: 'GameSession.startInvestmentRound',
+      layerTrace: review.probabilisticTrace,
     });
     return this;
   }
@@ -432,6 +479,10 @@ export class GameSession {
       this.resolveSalaryEvent(event.targetId, choiceIndex);
     }
 
+    if (event.type === 'investmentResult') {
+      this.resolveInvestmentEvent();
+    }
+
     return this;
   }
 
@@ -614,6 +665,7 @@ export class GameSession {
       employees: this.state.employees,
       activeProjects: this.state.activeProjects,
       pendingEvents: this.state.pendingEvents,
+      investment: this.state.investment,
     });
   }
 
@@ -658,6 +710,42 @@ export class GameSession {
         source: log.source,
         layerTrace: log.layerTrace,
       });
+    }
+  }
+
+  private resolveInvestmentEvent(): void {
+    this.traceFunction('GameSession.resolveInvestmentEvent');
+    const resolution = this.deps.investmentResultResolver.resolve({
+      capital: this.state.capital,
+      companyRating: this.state.companyRating,
+      employees: this.state.employees,
+      investment: this.state.investment,
+      turn: this.state.turn,
+    });
+    this.state.capital = resolution.capital;
+    this.state.companyRating = resolution.companyRating;
+    this.state.employees = resolution.employees;
+    this.state.investment = resolution.investment;
+    for (const log of resolution.logs) {
+      this.addLog(log.message, log.layer, {
+        source: log.source,
+        layerTrace: log.layerTrace,
+      });
+    }
+  }
+
+  private refreshInvestmentState(): void {
+    const { investment, turn } = this.state;
+    if (
+      investment.status === 'cooldown'
+      && investment.cooldownEndsOnTurn !== null
+      && turn >= investment.cooldownEndsOnTurn
+    ) {
+      this.state.investment = {
+        ...investment,
+        status: 'idle',
+        cooldownEndsOnTurn: null,
+      };
     }
   }
 

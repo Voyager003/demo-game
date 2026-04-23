@@ -4,6 +4,7 @@ import type { PendingEvent } from '../../types/event';
 
 const PRIORITY_ORDER = [
   'capitalCrisis',
+  'investmentResult',
   'probationConversion',
   'salaryNegotiation',
   'deadlineApproaching',

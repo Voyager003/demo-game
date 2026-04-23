@@ -10,7 +10,8 @@ export type ProbabilityMetricKey =
   | 'probability.projectRework'
   | 'probability.employeeBurnout'
   | 'probability.employeeQuit'
-  | 'probability.serviceOutage';
+  | 'probability.serviceOutage'
+  | 'probability.investmentSuccess';
 
 export type LayerMetricKey = GameMetricKey | ProbabilityMetricKey;
 

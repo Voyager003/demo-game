@@ -34,7 +34,7 @@ function ActionButton({ action, label, description, onClick, disabled }: ActionB
 
 export function ActionMenu() {
   const state = useGameStore((s) => s.state);
-  const { postJobListing, endTurn } = useGameStore();
+  const { postJobListing, startInvestmentRound, endTurn } = useGameStore();
   const [section, setSection] = useState<'hr' | 'project' | 'info'>('hr');
 
   if (!state || state.phase !== 2) return null;
@@ -142,12 +142,28 @@ export function ActionMenu() {
               onClick={() => {}}
               disabled={!can('orderOvertime') || !hasActiveContractProject}
             />
+            <ActionButton
+              action="startInvestmentRound"
+              label={
+                state.investment.status === 'underReview'
+                  ? '투자 심사 진행 중'
+                  : onCooldown('startInvestmentRound')
+                    ? `투자 유치 (쿨타임 ${cooldownLeft('startInvestmentRound')}턴)`
+                    : state.investment.status === 'cooldown'
+                      ? `투자 유치 재정비 (${Math.max(0, (state.investment.cooldownEndsOnTurn ?? state.turn) - state.turn)}턴)`
+                      : '투자 유치 시작'
+              }
+              description="대표가 투자 심사를 시작합니다. 회사 평가와 실적, 비전이 성공 확률에 반영됩니다."
+              onClick={startInvestmentRound}
+              disabled={!can('startInvestmentRound')}
+            />
           </>
         )}
 
         {section === 'info' && (
           <div className="info-section">
             <p className="info-text">대시보드 열람, 직원 정보, 이벤트 로그 — 피로도 소모 없음.</p>
+            <p className="info-text">회사 평가: {state.companyRating}/100</p>
           </div>
         )}
       </div>

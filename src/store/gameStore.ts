@@ -25,6 +25,7 @@ interface GameStore {
   changeAssignment: (employeeId: string, projectId: string, percentage: number) => void;
   setProjectAssignments: (projectId: string, employeeIds: string[]) => void;
   orderOvertime: (projectId: string) => void;
+  startInvestmentRound: () => void;
 
   canPerformAction: (action: ActionType) => boolean;
   resolveEvent: (eventId: string, choiceIndex: number) => void;
@@ -148,6 +149,12 @@ export const useGameStore = create<GameStore>()(
     orderOvertime: (projectId) => {
       set((store) => {
         runSession(store, (session) => session.orderOvertime(projectId));
+      });
+    },
+
+    startInvestmentRound: () => {
+      set((store) => {
+        runSession(store, (session) => session.startInvestmentRound());
       });
     },
 
