@@ -1,8 +1,13 @@
-import { LV1_PROJECT_TEMPLATES } from '../constants/projectTemplates';
 import {
   resolveProjectDeterministicMetrics,
   type ProjectDeterministicResolution,
 } from './layers/deterministic-layer';
+import { defaultProjectFactory } from './factories/project-factory';
+import {
+  DEFAULT_CONTRACT_PAYMENT_TERMS,
+  DEFAULT_PROJECT_AVAILABILITY_POLICY,
+  DEFAULT_PROJECT_FAILURE_POLICY,
+} from './policies/project-policies';
 import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
 import type { Project } from '../types/project';
@@ -27,101 +32,12 @@ export interface ProjectProgressLog {
   layerTrace: LayerTraceInput;
 }
 
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-}
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function randFrom<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-const MAIN_REVENUE_PROJECTS: Record<Domain, Pick<Project, 'name' | 'monthlyRevenue' | 'revenueModel' | 'revenueLabel'>> = {
-  b2bsaas: {
-    name: 'B2B 업무 자동화 SaaS',
-    monthlyRevenue: 320,
-    revenueModel: 'subscription',
-    revenueLabel: 'MRR 구독 매출',
-  },
-  commerce: {
-    name: '니치 커머스 운영 플랫폼',
-    monthlyRevenue: 280,
-    revenueModel: 'commission',
-    revenueLabel: '거래 수수료 매출',
-  },
-  community: {
-    name: '콘텐츠 커뮤니티 광고 네트워크',
-    monthlyRevenue: 180,
-    revenueModel: 'ads',
-    revenueLabel: '광고 매출',
-  },
-  fintech: {
-    name: '핀테크 정산 API',
-    monthlyRevenue: 380,
-    revenueModel: 'subscription',
-    revenueLabel: 'API 사용료 매출',
-  },
-  healthcareit: {
-    name: '클리닉 예약/문진 서비스',
-    monthlyRevenue: 300,
-    revenueModel: 'subscription',
-    revenueLabel: '의료기관 구독 매출',
-  },
-};
-
 export function generateMainRevenueProject(domain: Domain): Project {
-  const template = MAIN_REVENUE_PROJECTS[domain];
-  return {
-    id: `main_${domain}_${generateId()}`,
-    name: template.name,
-    kind: 'ownedProduct',
-    level: 1,
-    totalAmount: 0,
-    monthlyRevenue: template.monthlyRevenue,
-    revenueModel: template.revenueModel,
-    revenueLabel: template.revenueLabel,
-    isMainRevenue: true,
-    advancePaid: true,
-    finalPaid: true,
-    turnsRequired: 0,
-    turnsElapsed: 0,
-    progress: 100,
-    assignedEmployeeIds: [],
-    status: 'operating',
-    clientSatisfaction: 100,
-    overtimeActive: false,
-  };
+  return defaultProjectFactory.generateMainRevenueProject(domain);
 }
 
 export function generateInitialProjects(count = 3): Project[] {
-  const projects: Project[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const template = randFrom(LV1_PROJECT_TEMPLATES);
-    projects.push({
-      id: generateId(),
-      name: template.name,
-      kind: 'contract',
-      level: 1,
-      totalAmount: randInt(template.minAmount, template.maxAmount),
-      monthlyRevenue: 0,
-      revenueModel: 'contract',
-      revenueLabel: '외주 선금/잔금',
-      isMainRevenue: false,
-      advancePaid: false,
-      finalPaid: false,
-      turnsRequired: randInt(template.minTurns, template.maxTurns),
-      turnsElapsed: 0,
-      progress: 0,
-      assignedEmployeeIds: [],
-      status: 'available',
-      clientSatisfaction: 0,
-      overtimeActive: false,
-    });
-  }
-  return projects;
+  return defaultProjectFactory.generateInitialProjects(count);
 }
 
 export function calculateProgressPerTurn(project: Project, assignedEmployees: Employee[]): number {
@@ -198,7 +114,7 @@ export class ProjectPortfolio {
   signContract(projectId: string): { portfolio: ProjectPortfolio; advance: number; projectName: string } | null {
     const project = this.availableProjects.find((candidate) => candidate.id === projectId);
     if (!project) return null;
-    const advance = Math.round(project.totalAmount * 0.3);
+    const advance = DEFAULT_CONTRACT_PAYMENT_TERMS.advance(project.totalAmount);
     const contracted: Project = {
       ...project,
       status: 'active',
@@ -284,7 +200,7 @@ export class ProjectPortfolio {
         return completed;
       }
 
-      if (assigned.length === 0 && turnsElapsed > project.turnsRequired + 3) {
+      if (DEFAULT_PROJECT_FAILURE_POLICY.shouldFail(project, assigned, turnsElapsed)) {
         logs.push({
           message: `[${project.name}] 프로젝트 실패 (인력 미배정)`,
           source: 'ProjectPortfolio.advanceWeek',
@@ -318,10 +234,15 @@ export class ProjectPortfolio {
   }
 
   replenishAvailable(): ProjectPortfolio {
-    if (this.availableProjects.length >= 2) return this;
+    if (!DEFAULT_PROJECT_AVAILABILITY_POLICY.needsReplenishment(this.availableProjects)) return this;
     return new ProjectPortfolio(
       this.activeProjects,
-      [...this.availableProjects, ...generateInitialProjects(2)],
+      [
+        ...this.availableProjects,
+        ...generateInitialProjects(
+          DEFAULT_PROJECT_AVAILABILITY_POLICY.replenishCountFor(),
+        ),
+      ],
     );
   }
 

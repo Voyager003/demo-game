@@ -1,6 +1,11 @@
 import type { Employee } from '../types/employee';
 import type { Project } from '../types/project';
 import { resolveEconomyDeterministicMetrics } from './layers/deterministic-layer';
+import {
+  DEFAULT_FINAL_PAYMENT_POLICY,
+  DEFAULT_OPERATING_COST_POLICY,
+  DEFAULT_RUNWAY_POLICY,
+} from './policies/economy-policies';
 
 export class EconomyLedger {
   static monthlySalaries(employees: Employee[]): number {
@@ -8,7 +13,7 @@ export class EconomyLedger {
   }
 
   static monthlyOperatingCosts(employeeCount: number): number {
-    return 200 + employeeCount * 50;
+    return DEFAULT_OPERATING_COST_POLICY.monthlyCost(employeeCount);
   }
 
   static monthlyBurn(employees: Employee[]): number {
@@ -36,19 +41,10 @@ export class EconomyLedger {
   }
 
   static runwayInTurns(capital: number, monthlyBurn: number): number {
-    if (monthlyBurn <= 0) return Infinity;
-    return Math.max(0, Math.floor((capital / monthlyBurn) * 4));
+    return DEFAULT_RUNWAY_POLICY.turns(capital, monthlyBurn);
   }
 
   static finalPayment(project: Project): number {
-    return Math.round(project.totalAmount * 0.7 * this.satisfactionMultiplier(project.clientSatisfaction));
-  }
-
-  private static satisfactionMultiplier(satisfaction: number): number {
-    if (satisfaction >= 90) return 1.05;
-    if (satisfaction >= 70) return 1;
-    if (satisfaction >= 50) return 0.9;
-    if (satisfaction >= 30) return 0.7;
-    return 0.5;
+    return DEFAULT_FINAL_PAYMENT_POLICY.payment(project.totalAmount, project.clientSatisfaction);
   }
 }
