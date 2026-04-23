@@ -2,6 +2,7 @@ import { DOMAIN_INITIAL_STATS } from '../constants/domainStats';
 import { EmployeeRoster, createFounder } from './employee';
 import { FatigueMeter } from './fatigue';
 import { createGameSessionDependencies, type GameSessionDependencies } from './game-session-dependencies';
+import { resolveEconomyDeterministicMetrics, resolveProjectDeterministicMetrics } from './layers/deterministic-layer';
 import { createEventLog, createFunctionLog } from './logging';
 import { ProjectPortfolio } from './project';
 import { TurnPhase } from './turn-phase';
@@ -469,23 +470,73 @@ export class GameSession {
       .toSnapshots();
     const project = this.state.activeProjects.find((candidate) => candidate.id === projectId);
     if (project) {
-      this.addLog(`[${project.name}] 인력 배정 변경 — ${employeeIds.length}명`, 'deterministic', {
-        source: 'GameSession.applyAssignments',
-        layerTrace: {
-          rule: '프로젝트 인력 배정 동기화',
-          trigger: 'changeAssignment 또는 setProjectAssignments 액션 성공',
-          inputs: [
-            `project=${project.name}`,
-            `projectId=${projectId}`,
-            `employeeCount=${employeeIds.length}`,
-          ],
-          effects: [
-            'project.assignedEmployeeIds를 선택 직원 목록으로 교체',
-            '각 employee.projectAssignments에 프로젝트 배정 100% 또는 제거 반영',
-            'changeAssignment 피로도 적용',
-          ],
-        },
-      });
+      const assignedEmployees = this.state.employees.filter((employee) => employeeIds.includes(employee.id));
+      if (project.kind === 'ownedProduct') {
+        const revenueResolution = resolveEconomyDeterministicMetrics(
+          this.state.activeProjects,
+          this.state.employees,
+        );
+        const recurringRevenue = revenueResolution.recurringRevenue.finalValue;
+        this.addLog(
+          `[${project.name}] 인력 배정 변경 — 예상 실효 수입 ${recurringRevenue.toLocaleString()}만원`,
+          'deterministic',
+          {
+            source: 'GameSession.applyAssignments',
+            layerTrace: {
+              ...revenueResolution.recurringRevenue.trace,
+              rule: '주수입원 인력 배정 결정론 미리보기',
+              trigger: 'changeAssignment 또는 setProjectAssignments 액션 성공',
+              inputs: [
+                `project=${project.name}`,
+                `projectId=${projectId}`,
+                `employeeCount=${employeeIds.length}`,
+                ...revenueResolution.recurringRevenue.trace.inputs,
+              ],
+              effects: [
+                'project.assignedEmployeeIds를 선택 직원 목록으로 교체',
+                '각 employee.projectAssignments에 프로젝트 배정 100% 또는 제거 반영',
+                ...revenueResolution.recurringRevenue.trace.effects,
+                'changeAssignment 피로도 적용',
+              ],
+              finalValue: `예상 실효 수입=${recurringRevenue}만원`,
+            },
+          },
+        );
+      } else {
+        const progressResolution = resolveProjectDeterministicMetrics(project, assignedEmployees);
+        const progressPerTurn = progressResolution.progressPerTurn.finalValue;
+        const turnsLeft = progressPerTurn > 0
+          ? Math.ceil((100 - project.progress) / progressPerTurn)
+          : null;
+        const finishTurn = turnsLeft === null ? null : this.state.turn + turnsLeft;
+        this.addLog(
+          `[${project.name}] 인력 배정 변경 — 예상 완료 ${finishTurn ? `Turn ${finishTurn}` : '불가'}`,
+          'deterministic',
+          {
+            source: 'GameSession.applyAssignments',
+            layerTrace: {
+              ...progressResolution.progressPerTurn.trace,
+              rule: '외주 인력 배정 결정론 미리보기',
+              trigger: 'changeAssignment 또는 setProjectAssignments 액션 성공',
+              inputs: [
+                `project=${project.name}`,
+                `projectId=${projectId}`,
+                `employeeCount=${employeeIds.length}`,
+                ...progressResolution.progressPerTurn.trace.inputs,
+              ],
+              effects: [
+                'project.assignedEmployeeIds를 선택 직원 목록으로 교체',
+                '각 employee.projectAssignments에 프로젝트 배정 100% 또는 제거 반영',
+                ...progressResolution.progressPerTurn.trace.effects,
+                'changeAssignment 피로도 적용',
+              ],
+              finalValue: finishTurn
+                ? `예상 완료 Turn ${finishTurn}, progressPerTurn=${progressPerTurn.toFixed(2)}%`
+                : '배정 인원이 부족해 예상 완료를 계산할 수 없음',
+            },
+          },
+        );
+      }
     }
     return this;
   }

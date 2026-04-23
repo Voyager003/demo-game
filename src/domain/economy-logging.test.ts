@@ -56,8 +56,8 @@ describe('EconomyLedger', () => {
       },
     });
 
-    expect(EconomyLedger.effectiveRecurringRevenue([main, side], [employee])).toBe(173);
-    expect(EconomyLedger.effectiveMonthlyNetBurn([employee], [main, side])).toBe(477);
+    expect(EconomyLedger.effectiveRecurringRevenue([main, side], [employee])).toBe(157);
+    expect(EconomyLedger.effectiveMonthlyNetBurn([employee], [main, side])).toBe(493);
   });
 
   it('handles runway and final payment edge cases', () => {

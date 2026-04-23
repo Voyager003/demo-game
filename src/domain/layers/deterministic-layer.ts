@@ -47,23 +47,12 @@ const projectRules: LayerRule<ProjectDeterministicContext>[] = [
   {
     id: 'project.progress.pm-support',
     description: 'PM 지원 정책이 일정/조율 보정을 계산합니다.',
-    evaluate: ({ assignedEmployees }) => defaultEmployeeContributionRegistry.pmSupportEffect(assignedEmployees),
+    evaluate: ({ assignedEmployees }) => defaultEmployeeContributionRegistry.pmSupportEffects(assignedEmployees),
   },
   {
     id: 'project.progress.common-stats',
     description: '팀 평균 공통 스탯이 프로젝트 생산성에 보정으로 적용됩니다.',
-    evaluate: ({ assignedEmployees }) => {
-      const percent = defaultTeamProductivityPolicy.percent(assignedEmployees);
-      if (percent === 0) return [];
-      return [{
-        layer: 'deterministic',
-        metric: PROGRESS_METRIC,
-        operation: 'percent',
-        value: percent,
-        reason: '팀 평균 체력/커뮤니케이션/멘탈 보정',
-        sourceRuleId: 'project.progress.common-stats',
-      }];
-    },
+    evaluate: ({ assignedEmployees }) => defaultTeamProductivityPolicy.effects(assignedEmployees),
   },
   {
     id: 'project.progress.probation-penalty',
@@ -103,12 +92,7 @@ const projectRules: LayerRule<ProjectDeterministicContext>[] = [
   {
     id: 'project.satisfaction.delivery-quality',
     description: '역할별 품질 정책이 클라이언트 만족도에 반영됩니다.',
-    evaluate: ({ assignedEmployees }) => defaultEmployeeContributionRegistry.deliveryQualityEffect(assignedEmployees),
-  },
-  {
-    id: 'project.satisfaction.pm-client-support',
-    description: 'PM의 고객/요구사항 관리 스탯이 클라이언트 만족도에 반영됩니다.',
-    evaluate: ({ assignedEmployees }) => defaultEmployeeContributionRegistry.pmClientSupportEffect(assignedEmployees),
+    evaluate: ({ assignedEmployees }) => defaultEmployeeContributionRegistry.deliveryQualityEffects(assignedEmployees),
   },
   {
     id: 'project.satisfaction.delivery-timing',
@@ -147,30 +131,35 @@ const economyRules: LayerRule<EconomyDeterministicContext>[] = [
   },
   {
     id: 'economy.recurring-revenue.effective-operation',
-    description: '주수입원 배정 인력의 외주 병행과 커뮤니케이션을 실효 매출 보정으로 적용합니다.',
+    description: '주수입원 배정 인력의 운영 집중도를 실효 매출 보정으로 적용합니다.',
     evaluate: (context) => {
       const mainProject = defaultMainRevenueOperationPolicy.findMainRevenueProject(context.projects);
       if (!mainProject) return [];
-      if (context.employees.length === 0) {
-        return [defaultMainRevenueOperationPolicy.percentEffect(mainProject, -1, '운영 직원 없음')];
-      }
-
-      const operation = defaultMainRevenueOperationPolicy.operation(
+      return [defaultMainRevenueOperationPolicy.focusEffect(context.projects, context.employees, mainProject)]
+        .filter((effect): effect is NonNullable<typeof effect> => Boolean(effect));
+    },
+  },
+  {
+    id: 'economy.recurring-revenue.common-stats',
+    description: '주수입원 배정 직원의 공통 스탯을 실효 매출 보정으로 적용합니다.',
+    evaluate: (context) => {
+      const mainProject = defaultMainRevenueOperationPolicy.findMainRevenueProject(context.projects);
+      if (!mainProject) return [];
+      return defaultMainRevenueOperationPolicy.commonEffects(context.projects, context.employees, mainProject);
+    },
+  },
+  {
+    id: 'economy.recurring-revenue.specialist-stats',
+    description: '주수입원 배정 직원의 전문 스탯을 실효 매출 보정으로 적용합니다.',
+    evaluate: (context) => {
+      const mainProject = defaultMainRevenueOperationPolicy.findMainRevenueProject(context.projects);
+      if (!mainProject) return [];
+      const assignedEmployees = defaultMainRevenueOperationPolicy.assignedEmployees(
         context.projects,
         context.employees,
         mainProject,
       );
-      if (!operation) {
-        return [defaultMainRevenueOperationPolicy.percentEffect(mainProject, -1, '주수입원 배정 직원 없음')];
-      }
-
-      return [
-        defaultMainRevenueOperationPolicy.percentEffect(
-          mainProject,
-          operation.effectiveMultiplier - 1,
-          `주수입원 운영 보정: 투입률 ${(operation.contributionRatio * 100).toFixed(0)}%, 커뮤니케이션 ${(operation.communicationPercent * 100).toFixed(1)}%`,
-        ),
-      ];
+      return defaultEmployeeContributionRegistry.mainRevenueSpecialistEffects(mainProject, assignedEmployees);
     },
   },
 ];

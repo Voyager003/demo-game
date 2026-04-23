@@ -1,5 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
+import { getCommonStatGuide, getSpecialistStatGuide } from '../../constants/statGuides';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
@@ -84,6 +85,7 @@ export function EmployeeDetail() {
                 label={specLabels[key] ?? key}
                 value={val as number}
                 max={10}
+                tooltip={getSpecialistStatGuide(emp.role, key)}
               />
             ))}
           </div>
@@ -98,6 +100,7 @@ export function EmployeeDetail() {
                 value={val}
                 min={-1}
                 max={5}
+                tooltip={getCommonStatGuide(key as keyof typeof emp.commonStats)}
               />
             ))}
             <div className="detail-slot-row">

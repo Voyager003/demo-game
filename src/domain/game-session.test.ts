@@ -246,7 +246,7 @@ describe('GameSession', () => {
     const state = session.toState();
 
     expect(state.phase).toBe(5);
-    expect(state.capital).toBe(1368);
+    expect(state.capital).toBe(1350);
     expect(state.activeProjects.find((project) => project.id === 'done')?.finalPaid).toBe(true);
     expect(state.eventLog.map((log) => log.source)).toEqual([
       'GameSession.applyWeeklySettlement',

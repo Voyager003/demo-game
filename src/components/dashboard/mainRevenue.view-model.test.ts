@@ -55,8 +55,8 @@ describe('main revenue view model', () => {
 
     expect(viewModel).toMatchObject({
       baseRevenue: 300,
-      effectiveRevenue: 239,
-      revenueRatio: 80,
+      effectiveRevenue: 218,
+      revenueRatio: 73,
       revenueColor: '',
       avgCommunication: 2,
       chemBonus: 6,

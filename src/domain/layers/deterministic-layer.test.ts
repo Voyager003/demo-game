@@ -90,9 +90,10 @@ describe('DeterministicLayer project metrics', () => {
 
     const result = resolveProjectDeterministicMetrics(project, [dev]);
 
-    expect(result.progressPerTurn.finalValue).toBe(20);
+    expect(result.progressPerTurn.finalValue).toBe(19);
     expect(result.clientSatisfaction.finalValue).toBe(78);
-    expect(result.progressPerTurn.trace.effects).toContain('Test Employee 개발자 구현 기여도: project.progressPerTurn add 20');
+    expect(result.progressPerTurn.trace.effects).toContain('Test Employee 개발자 구현속도: project.progressPerTurn add 8');
+    expect(result.progressPerTurn.trace.effects).toContain('Test Employee 개발자 문제해결력: project.progressPerTurn add 5');
   });
 
   it('combines designer, PM support, common stats, probation, and overtime modifiers', () => {
@@ -181,7 +182,7 @@ describe('DeterministicLayer economy metrics', () => {
     expect(result.recurringRevenue.trace.effects).toContain('주수입원 배정 직원 없음: economy.recurringRevenue percent -100%');
   });
 
-  it('applies assignment split and communication as a deterministic percent modifier', () => {
+  it('applies assignment split and stat-based revenue modifiers', () => {
     const main = testProject({
       id: 'main',
       kind: 'ownedProduct',
@@ -209,9 +210,10 @@ describe('DeterministicLayer economy metrics', () => {
     const result = resolveEconomyDeterministicMetrics([main, contract], [employee]);
 
     expect(result.recurringRevenue.baseValue).toBe(300);
-    expect(result.recurringRevenue.finalValue).toBe(173);
-    expect(result.recurringRevenue.percentTotal).toBe(-0.425);
+    expect(result.recurringRevenue.finalValue).toBe(157);
+    expect(result.recurringRevenue.percentTotal).toBeCloseTo(-0.4775, 4);
     expect(result.recurringRevenue.trace.inputs).toContain('contributionRatio=50%');
+    expect(result.recurringRevenue.trace.effects.some((text) => text.includes('소통'))).toBe(true);
   });
 });
 

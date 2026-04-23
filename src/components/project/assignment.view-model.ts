@@ -1,5 +1,7 @@
+import { EconomyLedger } from '../../domain/economy';
+import { EmployeeRoster } from '../../domain/employee';
 import { employeeSpecialistTotal } from '../../domain/employee';
-import { estimateProjectCompletion, type ProjectEstimate } from '../../domain/project';
+import { estimateProjectCompletion, ProjectPortfolio, type ProjectEstimate } from '../../domain/project';
 import type { Employee } from '../../types/employee';
 import type { Project } from '../../types/project';
 
@@ -19,6 +21,44 @@ export function buildAssignmentEstimate(
   currentTurn: number,
 ): ProjectEstimate | null {
   return estimateProjectCompletion(project, selectedEmployees, currentTurn);
+}
+
+export interface MainRevenueEstimate {
+  effectiveRevenue: number;
+  revenueRatio: number;
+  summary: string;
+}
+
+export function buildMainRevenueEstimate(
+  projectId: string,
+  employeeIds: string[],
+  projects: Project[],
+  employees: Employee[],
+): MainRevenueEstimate | null {
+  const mainProject = projects.find((project) => project.id === projectId);
+  if (!mainProject) return null;
+
+  const simulatedProjects = new ProjectPortfolio(projects, [])
+    .setAssignments(projectId, employeeIds)
+    .toSnapshots()
+    .activeProjects;
+  const simulatedEmployees = new EmployeeRoster(employees)
+    .setProjectAssignments(projectId, employeeIds)
+    .toSnapshots();
+  const effectiveRevenue = EconomyLedger.effectiveRecurringRevenue(simulatedProjects, simulatedEmployees);
+  if (effectiveRevenue <= 0) return null;
+
+  const revenueRatio = mainProject.monthlyRevenue > 0
+    ? Math.round((effectiveRevenue / mainProject.monthlyRevenue) * 100)
+    : 0;
+  const summary =
+    revenueRatio >= 100
+      ? '집중 운영'
+      : revenueRatio >= 70
+        ? '부분 운영'
+        : '외주 병행 손실';
+
+  return { effectiveRevenue, revenueRatio, summary };
 }
 
 export function getOtherProjectCount(

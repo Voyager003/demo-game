@@ -1,5 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
+import { getCommonStatGuide, getSpecialistStatGuide } from '../../constants/statGuides';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
@@ -43,6 +44,7 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             label={specLabels[key] ?? key}
             value={val as number}
             max={10}
+            tooltip={getSpecialistStatGuide(candidate.role, key)}
           />
         ))}
         <span className="spec-sum">전문 스탯 합계: {specSum}</span>
@@ -56,6 +58,7 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             value={candidate.commonStats[key]}
             min={-1}
             max={5}
+            tooltip={getCommonStatGuide(key)}
           />
         ))}
         <div className="resume-concurrent">

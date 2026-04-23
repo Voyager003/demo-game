@@ -155,11 +155,11 @@ describe('project domain', () => {
     });
 
     expect(calculateProgressPerTurn(project, [])).toBe(0);
-    expect(calculateProgressPerTurn(project, [developer])).toBe(20);
+    expect(calculateProgressPerTurn(project, [developer])).toBe(19);
     expect(estimateProjectCompletion(project, [developer], 3)).toEqual({
-      progressPerTurn: 20,
-      turnsLeft: 3,
-      finishTurn: 6,
+      progressPerTurn: 19,
+      turnsLeft: 4,
+      finishTurn: 7,
     });
     expect(estimateProjectCompletion(project, [], 3)).toBeNull();
   });

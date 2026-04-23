@@ -38,9 +38,9 @@ describe('turn report view model', () => {
     expect(summary).toMatchObject({
       capitalDelta: 300,
       monthlyBurn: 650,
-      recurringRevenue: 318,
-      monthlyNetBurn: 332,
-      runway: 14,
+      recurringRevenue: 300,
+      monthlyNetBurn: 350,
+      runway: 13,
       employeeCount: 1,
     });
     expect(summary.recentLogs.map((log) => log.message)).toEqual([

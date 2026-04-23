@@ -1,15 +1,24 @@
 
+import { HoverInfo } from './HoverInfo';
+
+interface StatTooltip {
+  label: string;
+  description: string;
+  deterministicImpact: string[];
+}
+
 interface Props {
   value: number;
   min: number;
   max: number;
   label?: string;
   showValue?: boolean;
+  tooltip?: StatTooltip;
 }
 
 // -1~5 범위 같은 음수를 포함하는 스탯 바
 // 제로 라인 기준으로 음수는 빨간색 왼쪽, 양수는 파란색 오른쪽
-export function StatBar({ value, min, max, label, showValue = true }: Props) {
+export function StatBar({ value, min, max, label, showValue = true, tooltip }: Props) {
   const range = max - min;
   const zeroRatio = Math.abs(min) / range; // 0의 위치 (0~1)
   const valueRatio = (value - min) / range;
@@ -20,7 +29,17 @@ export function StatBar({ value, min, max, label, showValue = true }: Props) {
 
   return (
     <div className="stat-bar-wrapper">
-      {label && <span className="stat-bar-label">{label}</span>}
+      {label && tooltip ? (
+        <HoverInfo
+          label={tooltip.label}
+          description={tooltip.description}
+          deterministicImpact={tooltip.deterministicImpact}
+        >
+          <span className="stat-bar-label has-help">{label}</span>
+        </HoverInfo>
+      ) : (
+        label && <span className="stat-bar-label">{label}</span>
+      )}
       <div className="stat-bar-track">
         <div
           className={`stat-bar-fill ${isNegative ? 'negative' : 'positive'}`}
@@ -46,10 +65,30 @@ export function StatBar({ value, min, max, label, showValue = true }: Props) {
 }
 
 // 1~10 범위의 단순 스탯 바
-export function SimpleStatBar({ value, max = 10, label }: { value: number; max?: number; label?: string }) {
+export function SimpleStatBar({
+  value,
+  max = 10,
+  label,
+  tooltip,
+}: {
+  value: number;
+  max?: number;
+  label?: string;
+  tooltip?: StatTooltip;
+}) {
   return (
     <div className="stat-bar-wrapper">
-      {label && <span className="stat-bar-label">{label}</span>}
+      {label && tooltip ? (
+        <HoverInfo
+          label={tooltip.label}
+          description={tooltip.description}
+          deterministicImpact={tooltip.deterministicImpact}
+        >
+          <span className="stat-bar-label has-help">{label}</span>
+        </HoverInfo>
+      ) : (
+        label && <span className="stat-bar-label">{label}</span>
+      )}
       <div className="stat-bar-track">
         <div
           className="stat-bar-fill positive"

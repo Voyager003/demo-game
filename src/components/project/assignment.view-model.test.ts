@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAssignmentEstimate,
+  buildMainRevenueEstimate,
   getOtherProjectCount,
   getSpecSum,
   isEmployeeAtCapacity,
@@ -43,10 +44,42 @@ describe('assignment view model', () => {
     expect(statValClass(0)).toBe('neutral');
     expect(getSpecSum(employee)).toBe(25);
     expect(buildAssignmentEstimate(project, [employee], 2)).toEqual({
-      progressPerTurn: 20,
-      turnsLeft: 2,
-      finishTurn: 4,
+      progressPerTurn: 19,
+      turnsLeft: 3,
+      finishTurn: 5,
     });
     expect(buildAssignmentEstimate(project, [], 2)).toBeNull();
+  });
+
+  it('estimates owned product effective revenue from simulated assignments', () => {
+    const main = testProject({
+      id: 'main',
+      kind: 'ownedProduct',
+      status: 'operating',
+      isMainRevenue: true,
+      monthlyRevenue: 300,
+      assignedEmployeeIds: ['emp'],
+    });
+    const side = testProject({
+      id: 'side',
+      status: 'active',
+      assignedEmployeeIds: ['emp'],
+    });
+    const employee = testEmployee({
+      id: 'emp',
+      commonStats: {
+        stamina: 2,
+        communication: 5,
+        mental: 2,
+        growthRate: 2,
+        loyalty: 2,
+      },
+    });
+
+    expect(buildMainRevenueEstimate('main', ['emp'], [main, side], [employee])).toEqual({
+      effectiveRevenue: 157,
+      revenueRatio: 52,
+      summary: '외주 병행 손실',
+    });
   });
 });
