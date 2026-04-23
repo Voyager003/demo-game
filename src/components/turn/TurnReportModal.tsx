@@ -1,6 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
-import { EconomyLedger } from '../../domain';
+import { buildTurnReportSummary } from './turnReport.view-model';
 
 export function TurnReportModal() {
   const state = useGameStore((s) => s.state);
@@ -10,13 +10,7 @@ export function TurnReportModal() {
 
   if (!state || state.phase !== 5) return null;
 
-  const capitalDelta = prev ? state.capital - prev.capital : 0;
-  const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
-  const recurringRevenue = EconomyLedger.monthlyRecurringRevenue(state.activeProjects);
-  const monthlyNetBurn = EconomyLedger.monthlyNetBurn(state.employees, state.activeProjects);
-  const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
-
-  const recentLogs = state.eventLog.slice(-8).reverse();
+  const summary = buildTurnReportSummary(state, prev);
 
   const handleNextTurn = () => {
     advancePhase(); // Phase5 → Turn+1, Phase1
@@ -38,36 +32,36 @@ export function TurnReportModal() {
                 {state.capital.toLocaleString()}만원
               </span>
             </div>
-            {capitalDelta !== 0 && (
+            {summary.capitalDelta !== 0 && (
               <div className="report-row">
                 <span>이번 턴 자본 변동</span>
-                <span className={capitalDelta >= 0 ? 'positive' : 'danger'}>
-                  {capitalDelta >= 0 ? '+' : ''}{capitalDelta.toLocaleString()}만원
+                <span className={summary.capitalDelta >= 0 ? 'positive' : 'danger'}>
+                  {summary.capitalDelta >= 0 ? '+' : ''}{summary.capitalDelta.toLocaleString()}만원
                 </span>
               </div>
             )}
             <div className="report-row">
               <span>월 예상 지출</span>
-              <span>{monthlyBurn.toLocaleString()}만원</span>
+              <span>{summary.monthlyBurn.toLocaleString()}만원</span>
             </div>
-            {recurringRevenue > 0 && (
+            {summary.recurringRevenue > 0 && (
               <div className="report-row">
                 <span>월 반복 수입</span>
-                <span className="positive">+{recurringRevenue.toLocaleString()}만원</span>
+                <span className="positive">+{summary.recurringRevenue.toLocaleString()}만원</span>
               </div>
             )}
             <div className="report-row">
               <span>월 순현금흐름</span>
-              <span className={monthlyNetBurn <= 0 ? 'positive' : ''}>
-                {monthlyNetBurn <= 0
-                  ? `+${Math.abs(monthlyNetBurn).toLocaleString()}만원`
-                  : `-${monthlyNetBurn.toLocaleString()}만원`}
+              <span className={summary.monthlyNetBurn <= 0 ? 'positive' : ''}>
+                {summary.monthlyNetBurn <= 0
+                  ? `+${Math.abs(summary.monthlyNetBurn).toLocaleString()}만원`
+                  : `-${summary.monthlyNetBurn.toLocaleString()}만원`}
               </span>
             </div>
             <div className="report-row">
               <span>런웨이</span>
-              <span className={runway < 8 ? 'warning' : ''}>
-                {runway === Infinity ? '흑자 운영 중' : `약 ${runway}턴`}
+              <span className={summary.runway < 8 ? 'warning' : ''}>
+                {summary.runway === Infinity ? '흑자 운영 중' : `약 ${summary.runway}턴`}
               </span>
             </div>
           </div>
@@ -98,16 +92,16 @@ export function TurnReportModal() {
             <h3>팀</h3>
             <div className="report-row">
               <span>인원</span>
-              <span>{state.employees.length}명</span>
+              <span>{summary.employeeCount}명</span>
             </div>
           </div>
 
           {/* 최근 로그 */}
-          {recentLogs.length > 0 && (
+          {summary.recentLogs.length > 0 && (
             <div className="report-section">
               <h3>이번 턴 로그</h3>
               <div className="report-log">
-                {recentLogs.map((log, i) => (
+                {summary.recentLogs.map((log, i) => (
                   <div key={i} className={`log-entry ${log.layer}`}>
                     <span className="log-dot" />
                     <span>{log.message}</span>

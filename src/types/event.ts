@@ -1,3 +1,5 @@
+import type { LayerTrace } from './layer';
+
 export type EventLayer = 'deterministic' | 'probabilistic' | 'chain';
 
 export type EventType =
@@ -27,8 +29,11 @@ export interface PendingEvent {
 }
 
 export interface LogEntry {
+  id?: string;
   turn: number;
   layer: EventLayer;
   message: string;
   timestamp: number;
+  source?: string;
+  layerTrace?: LayerTrace;
 }

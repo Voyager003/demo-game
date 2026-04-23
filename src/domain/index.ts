@@ -14,3 +14,10 @@ export {
 export { EconomyLedger } from './economy';
 export { TurnCycle } from './turn-cycle';
 export { GameSession } from './game-session';
+export {
+  deterministicLayer,
+  DeterministicLayer,
+  resolveEconomyDeterministicMetrics,
+  resolveProjectDeterministicMetrics,
+} from './layers/deterministic-layer';
+export { probabilisticLayer, ProbabilisticLayer } from './layers/probabilistic-layer';
