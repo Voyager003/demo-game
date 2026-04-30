@@ -662,7 +662,7 @@ describe('GameSession', () => {
     });
   });
 
-  it('advances from report phase into next turn and replenishes available projects', () => {
+  it('advances from report phase into next turn and refreshes contract offers', () => {
     const session = new GameSession(testGameState({
       turn: 5,
       phase: 5,
@@ -672,7 +672,13 @@ describe('GameSession', () => {
         max: 9,
         cooldowns: testCooldowns({ postJobListing: 1 }),
       },
-    }));
+    }), {
+      random: new StubRandomSource([
+        0.1, // spawn extra offer
+        0.0, 0.3, 0.4, 0.8, // offer 1
+        0.0, 0.3, 0.4, 0.2, // offer 2
+      ]),
+    });
 
     session.advancePhase();
     const state = session.toState();
@@ -682,6 +688,8 @@ describe('GameSession', () => {
     expect(state.fatigue.current).toBe(10);
     expect(state.fatigue.cooldowns.postJobListing).toBe(1);
     expect(state.availableProjects).toHaveLength(2);
+    expect(state.availableProjects.every((project) => project.offeredAtTurn === 6)).toBe(true);
+    expect(state.eventLog.some((log) => log.message.includes('신규 외주 제안 도착'))).toBe(true);
   });
 
   it('returns unchanged for no-op phase transitions and endTurn outside decision phase', () => {

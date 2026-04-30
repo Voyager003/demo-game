@@ -2,11 +2,15 @@ import {
   resolveProjectDeterministicMetrics,
   type ProjectDeterministicResolution,
 } from './layers/deterministic-layer';
-import { defaultProjectFactory } from './factories/project-factory';
+import { defaultProjectFactory, type ProjectFactory } from './factories/project-factory';
+import type { RandomSource } from './generation';
 import {
+  type ContractOfferLifecyclePolicy,
+  type ContractOfferSpawnPolicy,
   DEFAULT_CONTRACT_PAYMENT_TERMS,
-  DEFAULT_PROJECT_AVAILABILITY_POLICY,
   DEFAULT_PROJECT_FAILURE_POLICY,
+  DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+  DEFAULT_CONTRACT_OFFER_SPAWN_POLICY,
 } from './policies/project-policies';
 import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
@@ -38,12 +42,17 @@ export interface ProjectProgressLog {
   layerTrace: LayerTraceInput;
 }
 
+export interface ContractOfferRefreshResult {
+  portfolio: ProjectPortfolio;
+  logs: ProjectProgressLog[];
+}
+
 export function generateMainRevenueProject(domain: Domain): Project {
   return defaultProjectFactory.generateMainRevenueProject(domain);
 }
 
-export function generateInitialProjects(count = 3): Project[] {
-  return defaultProjectFactory.generateInitialProjects(count);
+export function generateInitialProjects(count = 3, currentTurn = 1): Project[] {
+  return defaultProjectFactory.generateInitialProjects(count, currentTurn);
 }
 
 export function calculateProgressPerTurn(
@@ -136,6 +145,8 @@ export class ProjectPortfolio {
       ...project,
       status: 'active',
       advancePaid: true,
+      offeredAtTurn: null,
+      expiresAtTurn: null,
     };
     return {
       portfolio: new ProjectPortfolio(
@@ -260,17 +271,91 @@ export class ProjectPortfolio {
     };
   }
 
-  replenishAvailable(): ProjectPortfolio {
-    if (!DEFAULT_PROJECT_AVAILABILITY_POLICY.needsReplenishment(this.availableProjects)) return this;
-    return new ProjectPortfolio(
-      this.activeProjects,
-      [
-        ...this.availableProjects,
-        ...generateInitialProjects(
-          DEFAULT_PROJECT_AVAILABILITY_POLICY.replenishCountFor(),
-        ),
-      ],
+  refreshAvailableContracts(
+    currentTurn: number,
+    random: RandomSource,
+    options: {
+      projectFactory?: ProjectFactory;
+      lifecyclePolicy?: ContractOfferLifecyclePolicy;
+      spawnPolicy?: ContractOfferSpawnPolicy;
+    } = {},
+  ): ContractOfferRefreshResult {
+    const projectFactory = options.projectFactory ?? defaultProjectFactory;
+    const lifecyclePolicy = options.lifecyclePolicy ?? DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY;
+    const spawnPolicy = options.spawnPolicy ?? DEFAULT_CONTRACT_OFFER_SPAWN_POLICY;
+    const logs: ProjectProgressLog[] = [];
+
+    const expiredContracts = this.availableProjects.filter((project) =>
+      lifecyclePolicy.isExpired(project, currentTurn),
     );
+    const remainingContracts = this.availableProjects.filter((project) =>
+      !lifecyclePolicy.isExpired(project, currentTurn),
+    );
+
+    for (const project of expiredContracts) {
+      logs.push({
+        message: `[${project.name}] 외주 제안 만료`,
+        source: 'ProjectPortfolio.refreshAvailableContracts',
+        layerTrace: {
+          layer: 'deterministic',
+          rule: '외주 제안 유지 기간 만료',
+          trigger: '현재 턴이 expiresAtTurn 이상으로 진입',
+          inputs: [
+            `project=${project.name}`,
+            `offeredAtTurn=${project.offeredAtTurn ?? '-'}`,
+            `expiresAtTurn=${project.expiresAtTurn ?? '-'}`,
+            `currentTurn=${currentTurn}`,
+          ],
+          effects: [
+            'availableProjects에서 외주 제안 제거',
+          ],
+          finalValue: `project.status=expiredOffer`,
+        },
+      });
+    }
+
+    let spawnedContracts: Project[] = [];
+    if (spawnPolicy.shouldSpawn(currentTurn, remainingContracts, random)) {
+      const spawnCount = spawnPolicy.spawnCount(currentTurn, remainingContracts, random);
+      if (spawnCount > 0) {
+        spawnedContracts = projectFactory.generateInitialProjects(
+          spawnCount,
+          currentTurn,
+          lifecyclePolicy,
+        );
+      }
+    }
+
+    for (const project of spawnedContracts) {
+      logs.push({
+        message: `[${project.name}] 신규 외주 제안 도착`,
+        source: 'ProjectPortfolio.refreshAvailableContracts',
+        layerTrace: {
+          layer: 'deterministic',
+          rule: '외주 제안 생성 윈도우 판정',
+          trigger: '외주 제안 생성 주기와 확률 조건 충족',
+          inputs: [
+            `project=${project.name}`,
+            `currentTurn=${currentTurn}`,
+            `offeredAtTurn=${project.offeredAtTurn ?? '-'}`,
+            `expiresAtTurn=${project.expiresAtTurn ?? '-'}`,
+          ],
+          effects: [
+            `제안 유지=${lifecyclePolicy.remainingTurns(project, currentTurn)}턴`,
+            'availableProjects에 외주 제안 추가',
+          ],
+          finalValue: `remainingTurns=${lifecyclePolicy.remainingTurns(project, currentTurn)}`,
+        },
+      });
+    }
+
+    return {
+      portfolio: new ProjectPortfolio(
+        this.activeProjects,
+        [...remainingContracts, ...spawnedContracts],
+      ),
+      logs,
+    };
   }
 
   toSnapshots(): Pick<{ activeProjects: Project[]; availableProjects: Project[] }, 'activeProjects' | 'availableProjects'> {

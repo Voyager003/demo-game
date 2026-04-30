@@ -1,5 +1,5 @@
-import { defaultEmployeeFactory, EmployeeFactory } from './factories/employee-factory';
-import { defaultProjectFactory, ProjectFactory } from './factories/project-factory';
+import { EmployeeFactory } from './factories/employee-factory';
+import { ProjectFactory } from './factories/project-factory';
 import type { RandomSource } from './generation';
 import { MathRandomSource } from './generation';
 import { TraitRevealPolicy } from './traits';
@@ -23,6 +23,12 @@ import {
   defaultCompanyStagePressurePolicy,
   defaultCompanyStageProgressionPolicy,
 } from './policies/company-stage-policies';
+import {
+  ContractOfferLifecyclePolicy,
+  ContractOfferSpawnPolicy,
+  DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+  DEFAULT_CONTRACT_OFFER_SPAWN_POLICY,
+} from './policies/project-policies';
 
 export interface GameSessionDependencies {
   random: RandomSource;
@@ -33,6 +39,8 @@ export interface GameSessionDependencies {
   companyStageProgressionPolicy: CompanyStageProgressionPolicy;
   companyStagePressurePolicy: CompanyStagePressurePolicy;
   companyStageInvestmentGatePolicy: CompanyStageInvestmentGatePolicy;
+  contractOfferLifecyclePolicy: ContractOfferLifecyclePolicy;
+  contractOfferSpawnPolicy: ContractOfferSpawnPolicy;
   monthlySettlementPolicy: MonthlySettlementPolicy;
   probationEventResolver: ProbationEventResolver;
   salaryNegotiationResolver: SalaryNegotiationResolver;
@@ -48,13 +56,15 @@ export function createGameSessionDependencies(
   const random = overrides.random ?? new MathRandomSource();
   return {
     random,
-    employeeFactory: overrides.employeeFactory ?? defaultEmployeeFactory,
-    projectFactory: overrides.projectFactory ?? defaultProjectFactory,
+    employeeFactory: overrides.employeeFactory ?? new EmployeeFactory(random),
+    projectFactory: overrides.projectFactory ?? new ProjectFactory(random),
     pendingEventFactory: overrides.pendingEventFactory ?? new PendingEventFactory(),
     crisisPolicy: overrides.crisisPolicy ?? new CrisisPolicy(),
     companyStageProgressionPolicy: overrides.companyStageProgressionPolicy ?? defaultCompanyStageProgressionPolicy,
     companyStagePressurePolicy: overrides.companyStagePressurePolicy ?? defaultCompanyStagePressurePolicy,
     companyStageInvestmentGatePolicy: overrides.companyStageInvestmentGatePolicy ?? defaultCompanyStageInvestmentGatePolicy,
+    contractOfferLifecyclePolicy: overrides.contractOfferLifecyclePolicy ?? DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+    contractOfferSpawnPolicy: overrides.contractOfferSpawnPolicy ?? DEFAULT_CONTRACT_OFFER_SPAWN_POLICY,
     monthlySettlementPolicy: overrides.monthlySettlementPolicy ?? new MonthlySettlementPolicy(),
     probationEventResolver: overrides.probationEventResolver ?? new ProbationEventResolver(),
     salaryNegotiationResolver: overrides.salaryNegotiationResolver ?? new SalaryNegotiationResolver(),

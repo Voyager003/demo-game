@@ -143,6 +143,12 @@ export function testProject(overrides: Partial<Project> = {}): Project {
     status: isOwned ? 'operating' : ('active' as ProjectStatus),
     clientSatisfaction: isOwned ? 100 : 0,
     overtimeActive: false,
+    offeredAtTurn:
+      overrides.offeredAtTurn
+      ?? (isOwned ? null : ((overrides.status ?? 'active') === 'available' ? 1 : null)),
+    expiresAtTurn:
+      overrides.expiresAtTurn
+      ?? (isOwned ? null : ((overrides.status ?? 'active') === 'available' ? 4 : null)),
     ...overrides,
   };
 }

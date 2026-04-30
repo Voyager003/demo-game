@@ -67,7 +67,7 @@ export class GameSession {
       employees: [founder],
       pendingResumes: [],
       activeProjects: [mainRevenueProject],
-      availableProjects: resolvedDeps.projectFactory.generateInitialProjects(),
+      availableProjects: resolvedDeps.projectFactory.generateInitialProjects(3, 1, resolvedDeps.contractOfferLifecyclePolicy),
       completedProjectCount: 0,
       eventLog: [
         createEventLog({
@@ -186,11 +186,15 @@ export class GameSession {
 
     if (phase.isReport()) {
       const next = new TurnCycle(this.state.turn, this.state.phase).startNextTurn();
-      const portfolio = new ProjectPortfolio(
+      const refresh = new ProjectPortfolio(
         this.state.activeProjects,
         this.state.availableProjects,
-      ).replenishAvailable();
-      const snapshots = portfolio.toSnapshots();
+      ).refreshAvailableContracts(next.turn, this.deps.random, {
+        projectFactory: this.deps.projectFactory,
+        lifecyclePolicy: this.deps.contractOfferLifecyclePolicy,
+        spawnPolicy: this.deps.contractOfferSpawnPolicy,
+      });
+      const snapshots = refresh.portfolio.toSnapshots();
       this.state = {
         ...this.state,
         turn: next.turn,
@@ -201,6 +205,12 @@ export class GameSession {
         activeProjects: snapshots.activeProjects,
         availableProjects: snapshots.availableProjects,
       };
+      for (const log of refresh.logs) {
+        this.addLog(log.message, 'deterministic', {
+          source: log.source,
+          layerTrace: log.layerTrace,
+        });
+      }
     }
 
     return this;

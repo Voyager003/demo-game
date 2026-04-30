@@ -3,6 +3,10 @@ import type { Domain } from '../../types/ceo';
 import type { Project, ProjectRevenueModel } from '../../types/project';
 import type { IdGenerator, RandomSource } from '../generation';
 import { MathRandomSource, TimestampIdGenerator } from '../generation';
+import {
+  DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+  type ContractOfferLifecyclePolicy,
+} from '../policies/project-policies';
 
 const MAIN_REVENUE_PROJECTS: Record<
   Domain,
@@ -73,13 +77,20 @@ export class ProjectFactory {
       status: 'operating',
       clientSatisfaction: 100,
       overtimeActive: false,
+      offeredAtTurn: null,
+      expiresAtTurn: null,
     };
   }
 
-  generateInitialProjects(count = 3): Project[] {
+  generateInitialProjects(
+    count = 3,
+    currentTurn = 1,
+    lifecyclePolicy: ContractOfferLifecyclePolicy = DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+  ): Project[] {
     const projects: Project[] = [];
     for (let index = 0; index < count; index += 1) {
       const template = this.random.pick(LV1_PROJECT_TEMPLATES);
+      const offerWindow = lifecyclePolicy.createOfferWindow(currentTurn, this.random);
       projects.push({
         id: this.ids.next(),
         name: template.name,
@@ -99,6 +110,8 @@ export class ProjectFactory {
         status: 'available',
         clientSatisfaction: 0,
         overtimeActive: false,
+        offeredAtTurn: offerWindow.offeredAtTurn,
+        expiresAtTurn: offerWindow.expiresAtTurn,
       });
     }
     return projects;

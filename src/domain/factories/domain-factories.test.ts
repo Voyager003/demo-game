@@ -74,19 +74,21 @@ describe('domain factories', () => {
   });
 
   it('creates projects through injected id and random providers', () => {
-    const random = new StubRandomSource([1600, 5], [0]);
+    const random = new StubRandomSource([700, 4, 5], [0]);
     const ids = new StubIdGenerator(['project-1', 'main-1']);
     const factory = new ProjectFactory(random, ids);
 
-    const [contract] = factory.generateInitialProjects(1);
+    const [contract] = factory.generateInitialProjects(1, 3);
     const main = factory.generateMainRevenueProject('fintech');
 
     expect(contract).toMatchObject({
       id: 'project-1',
       kind: 'contract',
-      totalAmount: 1000,
+      totalAmount: 700,
       turnsRequired: 5,
       status: 'available',
+      offeredAtTurn: 3,
+      expiresAtTurn: 8,
     });
     expect(main).toMatchObject({
       id: 'main_fintech_main-1',
