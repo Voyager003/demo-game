@@ -14,6 +14,7 @@ describe('actions and fatigue', () => {
       'orderOvertime',
       'postJobListing',
       'signContract',
+      'startInvestmentRound',
     ]);
     expect(ACTION_RULES.postJobListing).toEqual({ fatigue: 3, cooldown: 2 });
     expect(ACTION_RULES.changeAssignment).toEqual({ fatigue: 1, cooldown: 0 });

@@ -50,6 +50,10 @@ button {
   color: var(--color-text-secondary);
   text-align: right;
 }
+.stat-bar-label.has-help {
+  border-bottom: 1px dashed rgba(255,255,255,0.18);
+  cursor: help;
+}
 .stat-bar-track {
   position: relative;
   height: 6px;
@@ -80,6 +84,61 @@ button {
   text-align: center;
 }
 .stat-bar-value.negative { color: var(--color-danger); }
+.hover-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.hover-info-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+.hover-info-card {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  max-width: 280px;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: rgba(14,20,28,0.98);
+  color: var(--color-text-primary);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  z-index: 40;
+}
+.hover-info:hover .hover-info-card,
+.hover-info:focus-within .hover-info-card {
+  opacity: 1;
+  transform: translateY(0);
+}
+.hover-info-card strong {
+  display: block;
+  font-size: var(--font-size-xs);
+  margin-bottom: 4px;
+}
+.hover-info-description,
+.hover-info-impact-title {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.hover-info-impact-title {
+  margin-top: 6px;
+  color: var(--color-accent);
+}
+.hover-info-card ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+}
 
 /* ─── 진행 바 ───────────────────────────────────────────────── */
 .progress-bar-wrapper {
@@ -849,6 +908,29 @@ button {
 .resume-salary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .resume-stats, .resume-common { display: flex; flex-direction: column; }
 .spec-sum { font-size: var(--font-size-xs); color: var(--color-text-muted); text-align: right; margin-top: 4px; }
+.trait-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trait-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--color-border);
+}
+.trait-chip.revealed {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--color-text-primary);
+}
+.trait-chip.hidden {
+  background: rgba(148, 163, 184, 0.12);
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
 .hire-btn {
   align-self: flex-end;
   padding: var(--space-xs) var(--space-md);

@@ -1,10 +1,20 @@
-import { LV1_PROJECT_TEMPLATES } from '../constants/projectTemplates';
 import {
   resolveProjectDeterministicMetrics,
   type ProjectDeterministicResolution,
 } from './layers/deterministic-layer';
+import { defaultProjectFactory, type ProjectFactory } from './factories/project-factory';
+import type { RandomSource } from './generation';
+import {
+  type ContractOfferLifecyclePolicy,
+  type ContractOfferSpawnPolicy,
+  DEFAULT_CONTRACT_PAYMENT_TERMS,
+  DEFAULT_PROJECT_FAILURE_POLICY,
+  DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY,
+  DEFAULT_CONTRACT_OFFER_SPAWN_POLICY,
+} from './policies/project-policies';
 import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
+import type { LayerEffect } from '../types/layer';
 import type { Project } from '../types/project';
 import type { LayerTraceInput } from './logging';
 
@@ -21,122 +31,54 @@ export interface ProjectProgressResult {
   logs: ProjectProgressLog[];
 }
 
+export interface ProjectAdvanceContext {
+  teamChem?: number;
+  externalEffects?: LayerEffect[];
+}
+
 export interface ProjectProgressLog {
   message: string;
   source: string;
   layerTrace: LayerTraceInput;
 }
 
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+export interface ContractOfferRefreshResult {
+  portfolio: ProjectPortfolio;
+  logs: ProjectProgressLog[];
 }
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function randFrom<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-const MAIN_REVENUE_PROJECTS: Record<Domain, Pick<Project, 'name' | 'monthlyRevenue' | 'revenueModel' | 'revenueLabel'>> = {
-  b2bsaas: {
-    name: 'B2B 업무 자동화 SaaS',
-    monthlyRevenue: 320,
-    revenueModel: 'subscription',
-    revenueLabel: 'MRR 구독 매출',
-  },
-  commerce: {
-    name: '니치 커머스 운영 플랫폼',
-    monthlyRevenue: 280,
-    revenueModel: 'commission',
-    revenueLabel: '거래 수수료 매출',
-  },
-  community: {
-    name: '콘텐츠 커뮤니티 광고 네트워크',
-    monthlyRevenue: 180,
-    revenueModel: 'ads',
-    revenueLabel: '광고 매출',
-  },
-  fintech: {
-    name: '핀테크 정산 API',
-    monthlyRevenue: 380,
-    revenueModel: 'subscription',
-    revenueLabel: 'API 사용료 매출',
-  },
-  healthcareit: {
-    name: '클리닉 예약/문진 서비스',
-    monthlyRevenue: 300,
-    revenueModel: 'subscription',
-    revenueLabel: '의료기관 구독 매출',
-  },
-};
 
 export function generateMainRevenueProject(domain: Domain): Project {
-  const template = MAIN_REVENUE_PROJECTS[domain];
-  return {
-    id: `main_${domain}_${generateId()}`,
-    name: template.name,
-    kind: 'ownedProduct',
-    level: 1,
-    totalAmount: 0,
-    monthlyRevenue: template.monthlyRevenue,
-    revenueModel: template.revenueModel,
-    revenueLabel: template.revenueLabel,
-    isMainRevenue: true,
-    advancePaid: true,
-    finalPaid: true,
-    turnsRequired: 0,
-    turnsElapsed: 0,
-    progress: 100,
-    assignedEmployeeIds: [],
-    status: 'operating',
-    clientSatisfaction: 100,
-    overtimeActive: false,
-  };
+  return defaultProjectFactory.generateMainRevenueProject(domain);
 }
 
-export function generateInitialProjects(count = 3): Project[] {
-  const projects: Project[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const template = randFrom(LV1_PROJECT_TEMPLATES);
-    projects.push({
-      id: generateId(),
-      name: template.name,
-      kind: 'contract',
-      level: 1,
-      totalAmount: randInt(template.minAmount, template.maxAmount),
-      monthlyRevenue: 0,
-      revenueModel: 'contract',
-      revenueLabel: '외주 선금/잔금',
-      isMainRevenue: false,
-      advancePaid: false,
-      finalPaid: false,
-      turnsRequired: randInt(template.minTurns, template.maxTurns),
-      turnsElapsed: 0,
-      progress: 0,
-      assignedEmployeeIds: [],
-      status: 'available',
-      clientSatisfaction: 0,
-      overtimeActive: false,
-    });
-  }
-  return projects;
+export function generateInitialProjects(count = 3, currentTurn = 1): Project[] {
+  return defaultProjectFactory.generateInitialProjects(count, currentTurn);
 }
 
-export function calculateProgressPerTurn(project: Project, assignedEmployees: Employee[]): number {
+export function calculateProgressPerTurn(
+  project: Project,
+  assignedEmployees: Employee[],
+  externalEffects: LayerEffect[] = [],
+): number {
   if (assignedEmployees.length === 0) return 0;
-  return resolveProjectDeterministicMetrics(project, assignedEmployees).progressPerTurn.finalValue;
+  return resolveProjectDeterministicMetrics(
+    project,
+    assignedEmployees,
+    undefined,
+    externalEffects,
+  ).progressPerTurn.finalValue;
 }
 
 export function estimateProjectCompletion(
   project: Project,
   selectedEmployees: Employee[],
   currentTurn: number,
+  externalEffects: LayerEffect[] = [],
 ): ProjectEstimate | null {
   const progressPerTurn = calculateProgressPerTurn(
     { ...project, assignedEmployeeIds: selectedEmployees.map((employee) => employee.id) },
     selectedEmployees,
+    externalEffects,
   );
   if (progressPerTurn <= 0) return null;
   const turnsLeft = Math.ceil((100 - project.progress) / progressPerTurn);
@@ -198,11 +140,13 @@ export class ProjectPortfolio {
   signContract(projectId: string): { portfolio: ProjectPortfolio; advance: number; projectName: string } | null {
     const project = this.availableProjects.find((candidate) => candidate.id === projectId);
     if (!project) return null;
-    const advance = Math.round(project.totalAmount * 0.3);
+    const advance = DEFAULT_CONTRACT_PAYMENT_TERMS.advance(project.totalAmount);
     const contracted: Project = {
       ...project,
       status: 'active',
       advancePaid: true,
+      offeredAtTurn: null,
+      expiresAtTurn: null,
     };
     return {
       portfolio: new ProjectPortfolio(
@@ -246,7 +190,7 @@ export class ProjectPortfolio {
     );
   }
 
-  advanceWeek(employees: Employee[]): ProjectProgressResult {
+  advanceWeek(employees: Employee[], context: ProjectAdvanceContext = {}): ProjectProgressResult {
     const logs: ProjectProgressLog[] = [];
     const completedProjects: Project[] = [];
     const overtimeEmployeeIds: string[] = [];
@@ -258,14 +202,24 @@ export class ProjectPortfolio {
       );
       if (project.overtimeActive) overtimeEmployeeIds.push(...project.assignedEmployeeIds);
 
-      const deterministicResolution = resolveProjectDeterministicMetrics(project, assigned);
+      const deterministicResolution = resolveProjectDeterministicMetrics(
+        project,
+        assigned,
+        context.teamChem,
+        context.externalEffects,
+      );
       const progressGain = deterministicResolution.progressPerTurn.finalValue;
       const turnsElapsed = project.turnsElapsed + 1;
       const progress = Math.min(100, project.progress + progressGain);
 
       if (progress >= 100) {
         const completedProject = { ...project, progress, turnsElapsed };
-        const completionResolution = resolveProjectDeterministicMetrics(completedProject, assigned);
+        const completionResolution = resolveProjectDeterministicMetrics(
+          completedProject,
+          assigned,
+          context.teamChem,
+          context.externalEffects,
+        );
         const completed = completeProject(
           completedProject,
           completionResolution.clientSatisfaction.finalValue,
@@ -284,7 +238,7 @@ export class ProjectPortfolio {
         return completed;
       }
 
-      if (assigned.length === 0 && turnsElapsed > project.turnsRequired + 3) {
+      if (DEFAULT_PROJECT_FAILURE_POLICY.shouldFail(project, assigned, turnsElapsed)) {
         logs.push({
           message: `[${project.name}] 프로젝트 실패 (인력 미배정)`,
           source: 'ProjectPortfolio.advanceWeek',
@@ -317,12 +271,91 @@ export class ProjectPortfolio {
     };
   }
 
-  replenishAvailable(): ProjectPortfolio {
-    if (this.availableProjects.length >= 2) return this;
-    return new ProjectPortfolio(
-      this.activeProjects,
-      [...this.availableProjects, ...generateInitialProjects(2)],
+  refreshAvailableContracts(
+    currentTurn: number,
+    random: RandomSource,
+    options: {
+      projectFactory?: ProjectFactory;
+      lifecyclePolicy?: ContractOfferLifecyclePolicy;
+      spawnPolicy?: ContractOfferSpawnPolicy;
+    } = {},
+  ): ContractOfferRefreshResult {
+    const projectFactory = options.projectFactory ?? defaultProjectFactory;
+    const lifecyclePolicy = options.lifecyclePolicy ?? DEFAULT_CONTRACT_OFFER_LIFECYCLE_POLICY;
+    const spawnPolicy = options.spawnPolicy ?? DEFAULT_CONTRACT_OFFER_SPAWN_POLICY;
+    const logs: ProjectProgressLog[] = [];
+
+    const expiredContracts = this.availableProjects.filter((project) =>
+      lifecyclePolicy.isExpired(project, currentTurn),
     );
+    const remainingContracts = this.availableProjects.filter((project) =>
+      !lifecyclePolicy.isExpired(project, currentTurn),
+    );
+
+    for (const project of expiredContracts) {
+      logs.push({
+        message: `[${project.name}] 외주 제안 만료`,
+        source: 'ProjectPortfolio.refreshAvailableContracts',
+        layerTrace: {
+          layer: 'deterministic',
+          rule: '외주 제안 유지 기간 만료',
+          trigger: '현재 턴이 expiresAtTurn 이상으로 진입',
+          inputs: [
+            `project=${project.name}`,
+            `offeredAtTurn=${project.offeredAtTurn ?? '-'}`,
+            `expiresAtTurn=${project.expiresAtTurn ?? '-'}`,
+            `currentTurn=${currentTurn}`,
+          ],
+          effects: [
+            'availableProjects에서 외주 제안 제거',
+          ],
+          finalValue: `project.status=expiredOffer`,
+        },
+      });
+    }
+
+    let spawnedContracts: Project[] = [];
+    if (spawnPolicy.shouldSpawn(currentTurn, remainingContracts, random)) {
+      const spawnCount = spawnPolicy.spawnCount(currentTurn, remainingContracts, random);
+      if (spawnCount > 0) {
+        spawnedContracts = projectFactory.generateInitialProjects(
+          spawnCount,
+          currentTurn,
+          lifecyclePolicy,
+        );
+      }
+    }
+
+    for (const project of spawnedContracts) {
+      logs.push({
+        message: `[${project.name}] 신규 외주 제안 도착`,
+        source: 'ProjectPortfolio.refreshAvailableContracts',
+        layerTrace: {
+          layer: 'deterministic',
+          rule: '외주 제안 생성 윈도우 판정',
+          trigger: '외주 제안 생성 주기와 확률 조건 충족',
+          inputs: [
+            `project=${project.name}`,
+            `currentTurn=${currentTurn}`,
+            `offeredAtTurn=${project.offeredAtTurn ?? '-'}`,
+            `expiresAtTurn=${project.expiresAtTurn ?? '-'}`,
+          ],
+          effects: [
+            `제안 유지=${lifecyclePolicy.remainingTurns(project, currentTurn)}턴`,
+            'availableProjects에 외주 제안 추가',
+          ],
+          finalValue: `remainingTurns=${lifecyclePolicy.remainingTurns(project, currentTurn)}`,
+        },
+      });
+    }
+
+    return {
+      portfolio: new ProjectPortfolio(
+        this.activeProjects,
+        [...remainingContracts, ...spawnedContracts],
+      ),
+      logs,
+    };
   }
 
   toSnapshots(): Pick<{ activeProjects: Project[]; availableProjects: Project[] }, 'activeProjects' | 'availableProjects'> {

@@ -13,7 +13,29 @@ import {
   generateMainRevenueProject,
   ProjectPortfolio,
 } from './project';
+import { ProjectFactory } from './factories/project-factory';
+import type { RandomSource } from './generation';
 import { testEmployee, testProject, testSpecialistStats } from '../test/fixtures';
+
+class StubRandomSource implements RandomSource {
+  private readonly values: number[];
+
+  constructor(values: number[]) {
+    this.values = values;
+  }
+
+  next(): number {
+    return this.values.shift() ?? 0;
+  }
+
+  nextInt(min: number, max: number): number {
+    return min + Math.floor(this.next() * (max - min + 1));
+  }
+
+  pick<T>(items: readonly T[]): T {
+    return items[Math.floor(this.next() * items.length)] ?? items[0]!;
+  }
+}
 
 describe('employee domain', () => {
   it('creates role-specific staff members and calculates specialist totals', () => {
@@ -104,12 +126,26 @@ describe('employee domain', () => {
   it('generates resumes in requested counts and valid ranges', () => {
     const resumes = EmployeeRoster.generateResumes(5, 90, 7);
     const founders = EmployeeRoster.generateFoundingCandidates(3, 90, 7);
+    const specialistTotals = resumes.map((employee) =>
+      Object.values(employee.specialistStats).reduce((sum, value) => sum + value, 0),
+    );
+    const commonTotals = resumes.map((employee) =>
+      employee.commonStats.stamina
+      + employee.commonStats.communication
+      + employee.commonStats.mental
+      + employee.commonStats.growthRate
+      + employee.commonStats.loyalty,
+    );
 
     expect(resumes).toHaveLength(5);
     expect(founders).toHaveLength(3);
     expect(founders.every((employee) => employee.role === 'developer')).toBe(true);
     expect(resumes.every((employee) => employee.hiredOnTurn === 7)).toBe(true);
     expect(resumes.every((employee) => employee.maxConcurrentProjects >= 1 && employee.maxConcurrentProjects <= 3)).toBe(true);
+    expect(resumes.every((employee) => employee.commonStats.loyalty === 0)).toBe(true);
+    expect(founders.every((employee) => employee.commonStats.loyalty === 0)).toBe(true);
+    expect(new Set(specialistTotals)).toEqual(new Set([30]));
+    expect(new Set(commonTotals)).toEqual(new Set([4]));
   });
 
   it('updates roster assignments, removals, weekly ticks, and overtime targets immutably', () => {
@@ -145,6 +181,8 @@ describe('project domain', () => {
     expect(contracts.every((project) => project.kind === 'contract')).toBe(true);
     expect(contracts.every((project) => project.status === 'available')).toBe(true);
     expect(contracts.every((project) => project.totalAmount > 0)).toBe(true);
+    expect(contracts.every((project) => project.offeredAtTurn === 1)).toBe(true);
+    expect(contracts.every((project) => (project.expiresAtTurn ?? 0) > 1)).toBe(true);
   });
 
   it('estimates completion from deterministic project progress', () => {
@@ -155,11 +193,11 @@ describe('project domain', () => {
     });
 
     expect(calculateProgressPerTurn(project, [])).toBe(0);
-    expect(calculateProgressPerTurn(project, [developer])).toBe(20);
+    expect(calculateProgressPerTurn(project, [developer])).toBe(19);
     expect(estimateProjectCompletion(project, [developer], 3)).toEqual({
-      progressPerTurn: 20,
-      turnsLeft: 3,
-      finishTurn: 6,
+      progressPerTurn: 19,
+      turnsLeft: 4,
+      finishTurn: 7,
     });
     expect(estimateProjectCompletion(project, [], 3)).toBeNull();
   });
@@ -251,11 +289,43 @@ describe('project domain', () => {
     expect(result.logs[0].message).toContain('프로젝트 실패');
   });
 
-  it('replenishes available projects only when fewer than two are available', () => {
-    expect(new ProjectPortfolio([], []).replenishAvailable().toSnapshots().availableProjects).toHaveLength(2);
-    expect(new ProjectPortfolio([], [
-      testProject({ id: 'a', status: 'available' }),
-      testProject({ id: 'b', status: 'available' }),
-    ]).replenishAvailable().toSnapshots().availableProjects).toHaveLength(2);
+  it('expires stale contract offers and spawns new offers only in spawn windows', () => {
+    const random = new StubRandomSource([
+      0.2, // should spawn
+      0.1, // spawn extra offer
+      0.0, 0.4, 0.5, // offer 1: pick, amount, turns
+      0.5, // offer 1 lifetime
+      0.0, 0.4, 0.5, // offer 2: pick, amount, turns
+      0.0, // offer 2 lifetime
+    ]);
+    const factory = new ProjectFactory(random);
+    const expiredOffer = testProject({
+      id: 'expired',
+      status: 'available',
+      offeredAtTurn: 1,
+      expiresAtTurn: 4,
+    });
+    const freshOffer = testProject({
+      id: 'fresh',
+      status: 'available',
+      offeredAtTurn: 3,
+      expiresAtTurn: 6,
+    });
+
+    const noWindow = new ProjectPortfolio([], [expiredOffer]).refreshAvailableContracts(3, random, {
+      projectFactory: factory,
+    });
+    expect(noWindow.portfolio.toSnapshots().availableProjects).toHaveLength(1);
+
+    const refreshed = new ProjectPortfolio([], [expiredOffer, freshOffer]).refreshAvailableContracts(4, random, {
+      projectFactory: factory,
+    });
+    const availableProjects = refreshed.portfolio.toSnapshots().availableProjects;
+
+    expect(availableProjects.map((project) => project.id)).not.toContain('expired');
+    expect(availableProjects).toHaveLength(3);
+    expect(availableProjects.every((project) => project.status === 'available')).toBe(true);
+    expect(refreshed.logs.some((log) => log.message.includes('외주 제안 만료'))).toBe(true);
+    expect(refreshed.logs.filter((log) => log.message.includes('신규 외주 제안 도착'))).toHaveLength(2);
   });
 });

@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { GameSession } from './game-session';
+import type { RandomSource } from './generation';
 import { testCooldowns, testEmployee, testGameState, testPendingEvent, testProject } from '../test/fixtures';
+
+class StubRandomSource implements RandomSource {
+  private readonly values: number[];
+
+  constructor(values: number[]) {
+    this.values = values;
+  }
+
+  next(): number {
+    return this.values.shift() ?? 0;
+  }
+
+  nextInt(min: number, max: number): number {
+    return min + Math.floor(this.next() * (max - min + 1));
+  }
+
+  pick<T>(items: readonly T[]): T {
+    return items[Math.floor(this.next() * items.length)] ?? items[0]!;
+  }
+}
 
 describe('GameSession', () => {
   it('starts a new game with a reusable session state, founder, main revenue project, and logs', () => {
@@ -37,6 +58,9 @@ describe('GameSession', () => {
     });
     expect(state.employees[0].projectAssignments).toEqual({ [state.activeProjects[0].id]: 100 });
     expect(state.eventLog).toHaveLength(3);
+    expect(state.companyRating).toBe(20);
+    expect(state.companyStage.currentStage).toBe('solo');
+    expect(state.companyStage.nextStagePreview.stage).toBe('earlyTeam');
     expect(functionLogs.map((log) => log.functionName)).toEqual(['GameSession.startNewGame']);
   });
 
@@ -187,6 +211,42 @@ describe('GameSession', () => {
     expect(session.toState().activeProjects[0].assignedEmployeeIds).toEqual([]);
   });
 
+  it('blocks investment start when current company stage gate is not met', () => {
+    const session = new GameSession(testGameState({
+      companyStage: {
+        currentStage: 'startup',
+        highestStage: 'startup',
+        lastPromotedTurn: 8,
+        nextStagePreview: { stage: 'scaleUp', stageLabel: '스케일업', requirements: [] },
+      },
+      companyRating: 40,
+      organization: {
+        chemistry: {
+          teamChem: 40,
+          pairChem: {},
+          recentTensions: [],
+          cultureHints: [],
+        },
+      },
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 100,
+          assignedEmployeeIds: ['emp-1'],
+        }),
+      ],
+    }));
+
+    session.startInvestmentRound();
+    const state = session.toState();
+
+    expect(state.investment.status).toBe('idle');
+    expect(state.fatigue.current).toBe(9);
+  });
+
   it('updates assignments on projects and employee snapshots', () => {
     const project = testProject({ id: 'p', assignedEmployeeIds: [] });
     const employees = [
@@ -246,7 +306,7 @@ describe('GameSession', () => {
     const state = session.toState();
 
     expect(state.phase).toBe(5);
-    expect(state.capital).toBe(1368);
+    expect(state.capital).toBe(1350);
     expect(state.activeProjects.find((project) => project.id === 'done')?.finalPaid).toBe(true);
     expect(state.eventLog.map((log) => log.source)).toEqual([
       'GameSession.applyWeeklySettlement',
@@ -258,6 +318,34 @@ describe('GameSession', () => {
     const logs = session.drainFunctionLogs();
     expect(logs.some((log) => log.functionName === 'GameSession.applyWeeklySettlement')).toBe(true);
     expect(session.drainFunctionLogs()).toEqual([]);
+  });
+
+  it('promotes only one company stage per monthly settlement', () => {
+    const employees = Array.from({ length: 6 }, (_, index) => testEmployee({ id: `emp-${index}` }));
+    const session = new GameSession(testGameState({
+      turn: 4,
+      capital: 9000,
+      companyRating: 70,
+      employees,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 400,
+          assignedEmployeeIds: employees.map((employee) => employee.id),
+        }),
+      ],
+    }));
+
+    session.endTurn();
+    const state = session.toState();
+
+    expect(state.phase).toBe(5);
+    expect(state.companyStage.currentStage).toBe('earlyTeam');
+    expect(state.companyStage.highestStage).toBe('earlyTeam');
+    expect(state.eventLog.some((log) => log.message.includes('회사 성장 단계 상승'))).toBe(true);
   });
 
   it('enters crisis, counts down grace, ends, and recovers when capital is restored', () => {
@@ -411,6 +499,107 @@ describe('GameSession', () => {
     ]);
   });
 
+  it('starts an investment round, generates a result event, and applies success rewards', () => {
+    const session = new GameSession(testGameState({
+      turn: 3,
+      phase: 2,
+      companyRating: 30,
+      completedProjectCount: 2,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 420,
+          assignedEmployeeIds: ['emp'],
+        }),
+      ],
+      employees: [testEmployee({
+        id: 'emp',
+        commonStats: {
+          stamina: 2,
+          communication: 2,
+          mental: 2,
+          growthRate: 2,
+          loyalty: 2,
+        },
+      })],
+    }), {
+      random: new StubRandomSource([0.01]),
+    });
+
+    session.startInvestmentRound();
+    expect(session.toState().investment.status).toBe('underReview');
+
+    const reportPhase = new GameSession(testGameState({
+      turn: 5,
+      phase: 1,
+      companyRating: session.toState().companyRating,
+      completedProjectCount: session.toState().completedProjectCount,
+      activeProjects: session.toState().activeProjects,
+      employees: session.toState().employees,
+      investment: session.toState().investment,
+    }), {
+      random: new StubRandomSource([0.01]),
+    });
+    reportPhase.advancePhase();
+    const event = reportPhase.toState().pendingEvents.find((candidate) => candidate.type === 'investmentResult');
+    expect(event).toBeTruthy();
+
+    reportPhase.resolveEvent(event!.id, 0);
+    const state = reportPhase.toState();
+    expect(state.capital).toBeGreaterThan(2000);
+    expect(state.companyRating).toBeGreaterThan(30);
+    expect(state.employees[0]?.commonStats).toMatchObject({
+      loyalty: 3,
+      growthRate: 3,
+    });
+    expect(state.investment.status).toBe('cooldown');
+    expect(state.eventLog.some((log) => log.source === 'GameSession.resolveInvestmentEvent')).toBe(true);
+  });
+
+  it('applies investment failure penalties and blocks retries during cooldown', () => {
+    const session = new GameSession(testGameState({
+      turn: 4,
+      phase: 2,
+      companyRating: 20,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 200,
+        }),
+      ],
+    }), {
+      random: new StubRandomSource([0.99]),
+    });
+
+    session.startInvestmentRound();
+    const reviewState = session.toState();
+    const resolver = new GameSession(testGameState({
+      turn: 6,
+      phase: 1,
+      companyRating: reviewState.companyRating,
+      activeProjects: reviewState.activeProjects,
+      employees: reviewState.employees,
+      investment: reviewState.investment,
+    }), {
+      random: new StubRandomSource([0.99]),
+    });
+    resolver.advancePhase();
+    const event = resolver.toState().pendingEvents.find((candidate) => candidate.type === 'investmentResult');
+    resolver.resolveEvent(event!.id, 0);
+
+    const failed = resolver.toState();
+    expect(failed.capital).toBe(2000);
+    expect(failed.companyRating).toBeLessThan(20);
+    expect(failed.investment.status).toBe('cooldown');
+    expect(resolver.canPerform('startInvestmentRound')).toBe(false);
+  });
+
   it('resolves termination probation choices and salary accept/reject choices', () => {
     const probation = testEmployee({
       id: 'probation',
@@ -473,7 +662,7 @@ describe('GameSession', () => {
     });
   });
 
-  it('advances from report phase into next turn and replenishes available projects', () => {
+  it('advances from report phase into next turn and refreshes contract offers', () => {
     const session = new GameSession(testGameState({
       turn: 5,
       phase: 5,
@@ -483,7 +672,13 @@ describe('GameSession', () => {
         max: 9,
         cooldowns: testCooldowns({ postJobListing: 1 }),
       },
-    }));
+    }), {
+      random: new StubRandomSource([
+        0.1, // spawn extra offer
+        0.0, 0.3, 0.4, 0.8, // offer 1
+        0.0, 0.3, 0.4, 0.2, // offer 2
+      ]),
+    });
 
     session.advancePhase();
     const state = session.toState();
@@ -493,6 +688,8 @@ describe('GameSession', () => {
     expect(state.fatigue.current).toBe(10);
     expect(state.fatigue.cooldowns.postJobListing).toBe(1);
     expect(state.availableProjects).toHaveLength(2);
+    expect(state.availableProjects.every((project) => project.offeredAtTurn === 6)).toBe(true);
+    expect(state.eventLog.some((log) => log.message.includes('신규 외주 제안 도착'))).toBe(true);
   });
 
   it('returns unchanged for no-op phase transitions and endTurn outside decision phase', () => {

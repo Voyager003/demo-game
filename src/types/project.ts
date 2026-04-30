@@ -25,4 +25,6 @@ export interface Project {
   status: ProjectStatus;
   clientSatisfaction: number; // 0~100 (납품 시 계산)
   overtimeActive: boolean;    // 야근 지시 여부 (해당 턴만)
+  offeredAtTurn: number | null; // 외주 제안이 시장에 등장한 턴
+  expiresAtTurn: number | null; // 외주 제안 만료 턴(해당 턴 진입 시 만료)
 }

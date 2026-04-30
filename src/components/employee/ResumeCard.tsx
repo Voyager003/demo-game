@@ -1,5 +1,9 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
+import { getCommonStatGuide, getSpecialistStatGuide } from '../../constants/statGuides';
+import { getTraitGuide, getTraitHintLabel } from '../../constants/traitGuides';
+import { getRevealedTraitDefinitions } from '../../domain/traits';
+import { HoverInfo } from '../shared/HoverInfo';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
@@ -25,6 +29,7 @@ interface ResumeItemProps {
 function ResumeItem({ candidate, onHire }: ResumeItemProps) {
   const specLabels = SPECIALIST_LABELS[candidate.role] ?? {};
   const specSum = Object.values(candidate.specialistStats).reduce((a, b) => a + (b as number), 0);
+  const revealedTraits = getRevealedTraitDefinitions(candidate.traitProfile);
 
   return (
     <div className="resume-item">
@@ -43,6 +48,7 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             label={specLabels[key] ?? key}
             value={val as number}
             max={10}
+            tooltip={getSpecialistStatGuide(candidate.role, key)}
           />
         ))}
         <span className="spec-sum">전문 스탯 합계: {specSum}</span>
@@ -56,12 +62,31 @@ function ResumeItem({ candidate, onHire }: ResumeItemProps) {
             value={candidate.commonStats[key]}
             min={-1}
             max={5}
+            tooltip={getCommonStatGuide(key)}
           />
         ))}
         <div className="resume-concurrent">
           <span className="muted">동시 투입가능 프로젝트</span>
           <ProjectSlotBar max={candidate.maxConcurrentProjects} />
         </div>
+      </div>
+
+      <div className="trait-chip-row">
+        {revealedTraits.map((trait) => (
+          <HoverInfo
+            key={trait.id}
+            label={getTraitGuide(trait.id).label}
+            description={getTraitGuide(trait.id).description}
+            deterministicImpact={getTraitGuide(trait.id).deterministicImpact}
+          >
+            <span className="trait-chip revealed">{trait.label}</span>
+          </HoverInfo>
+        ))}
+        {candidate.traitProfile.reveal.hints.map((hint) => (
+          <span key={`${hint.category}:${hint.text}`} className="trait-chip hidden">
+            {getTraitHintLabel(hint)}: {hint.text}
+          </span>
+        ))}
       </div>
 
       <button className="hire-btn" onClick={() => onHire(candidate.id)}>

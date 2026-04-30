@@ -1,3 +1,5 @@
+import type { TraitProfile } from './trait';
+
 export type Role = 'developer' | 'designer' | 'pm';
 
 export type EmploymentType = 'regular' | 'contract';
@@ -49,4 +51,5 @@ export interface Employee {
   maxConcurrentProjects: number; // 1~3: 동시에 투입 가능한 프로젝트 수
   projectAssignments: Record<string, number>; // projectId → 배정 비율 (%)
   hiredOnTurn: number;
+  traitProfile: TraitProfile;
 }

@@ -13,6 +13,7 @@ export const ACTION_RULES: Record<ActionType, ActionRule> = {
   signContract: { fatigue: 3, cooldown: 0 },
   changeAssignment: { fatigue: 1, cooldown: 0 },
   orderOvertime: { fatigue: 2, cooldown: 1 },
+  startInvestmentRound: { fatigue: 4, cooldown: 6 },
 };
 
 const MAX_FATIGUE_BY_LEADERSHIP: Record<number, number> = {
@@ -32,4 +33,3 @@ export function maxFatigueForLeadership(leadership: number): number {
   const clamped = Math.max(1, Math.min(10, Math.round(leadership)));
   return MAX_FATIGUE_BY_LEADERSHIP[clamped] ?? 8;
 }
-

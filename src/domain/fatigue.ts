@@ -73,10 +73,10 @@ export function createInitialCooldowns(): Record<ActionType, number> {
     signContract: 0,
     changeAssignment: 0,
     orderOvertime: 0,
+    startInvestmentRound: 0,
   };
 }
 
 export function canPerformAction(state: GameState, action: ActionType): boolean {
   return new FatigueMeter(state.fatigue).canPerform(action);
 }
-

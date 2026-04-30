@@ -1,4 +1,5 @@
 import type { Phase } from '../types/core';
+import { TurnPhase } from './turn-phase';
 
 export class TurnCycle {
   private readonly turn: number;
@@ -10,23 +11,22 @@ export class TurnCycle {
   }
 
   toDecisionPhase(): { turn: number; phase: Phase } {
-    return { turn: this.turn, phase: this.phase === 1 ? 2 : this.phase };
+    return { turn: this.turn, phase: TurnPhase.from(this.phase).toDecisionPhase().value };
   }
 
   toExecutionPhase(): { turn: number; phase: Phase } {
-    return { turn: this.turn, phase: this.phase === 2 ? 3 : this.phase };
+    return { turn: this.turn, phase: TurnPhase.from(this.phase).toExecutionPhase().value };
   }
 
   toSettlementPhase(): { turn: number; phase: Phase } {
-    return { turn: this.turn, phase: this.phase === 3 ? 4 : this.phase };
+    return { turn: this.turn, phase: TurnPhase.from(this.phase).toSettlementPhase().value };
   }
 
   toReportPhase(): { turn: number; phase: Phase } {
-    return { turn: this.turn, phase: this.phase === 4 ? 5 : this.phase };
+    return { turn: this.turn, phase: TurnPhase.from(this.phase).toReportPhase().value };
   }
 
   startNextTurn(): { turn: number; phase: Phase } {
-    if (this.phase !== 5) return { turn: this.turn, phase: this.phase };
-    return { turn: this.turn + 1, phase: 1 };
+    return TurnPhase.from(this.phase).startNextTurn(this.turn);
   }
 }

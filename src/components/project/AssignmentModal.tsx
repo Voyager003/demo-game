@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { getCommonStatGuide } from '../../constants/statGuides';
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { Modal } from '../shared/Modal';
+import { HoverInfo } from '../shared/HoverInfo';
 import { canPerformAction } from '../../domain';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
 import {
   buildAssignmentEstimate,
+  buildMainRevenueEstimate,
   getOtherProjectCount,
   getSpecSum,
   isEmployeeAtCapacity,
@@ -88,9 +91,27 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
     selectedIds.includes(e.id),
   );
 
-  const estimate = isOwnedProduct
+  const contractEstimate = isOwnedProduct
     ? null
-    : buildAssignmentEstimate(project, selectedEmployees, state.turn);
+    : buildAssignmentEstimate(
+        project,
+        selectedEmployees,
+        state.turn,
+        state.companyStage,
+        state.activeProjects,
+        state.employees,
+        state.organization.chemistry.teamChem,
+      );
+  const mainRevenueEstimate = isOwnedProduct
+    ? buildMainRevenueEstimate(
+        projectId,
+        selectedIds,
+        state.activeProjects,
+        state.employees,
+        state.organization.chemistry.teamChem,
+        state.companyStage,
+      )
+    : null;
 
   const toggle = (emp: { id: string; maxConcurrentProjects: number }) => {
     if (isAtCapacity(emp)) return;
@@ -117,9 +138,30 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
         )}
       </div>
 
-      {!isOwnedProduct && (
+      {isOwnedProduct ? (
+        <div className={`estimate-card ${mainRevenueEstimate && mainRevenueEstimate.revenueRatio < 100 ? 'late' : ''}`}>
+          {mainRevenueEstimate ? (
+            <>
+              <div className="estimate-row">
+                <span className="estimate-label">예상 실효 수입</span>
+                <span className="estimate-value">월 {mainRevenueEstimate.effectiveRevenue.toLocaleString()}만원</span>
+              </div>
+              <div className="estimate-row">
+                <span className="estimate-label">기본 대비</span>
+                <span className="estimate-value">{mainRevenueEstimate.revenueRatio}%</span>
+              </div>
+              <div className="estimate-row">
+                <span className="estimate-label">결정론 요약</span>
+                <span className="estimate-value">{mainRevenueEstimate.summary}</span>
+              </div>
+            </>
+          ) : (
+            <span className="estimate-no-dev">배정 인원이 있어야 실효 수입이 계산됩니다</span>
+          )}
+        </div>
+      ) : (
         <EstimateCard
-          estimate={estimate}
+          estimate={contractEstimate}
           project={project}
           currentTurn={state.turn}
         />
@@ -155,15 +197,21 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
                 <div className="assignment-emp-stats-row">
                   <span className="assignment-emp-spec">스탯합 {specSum}</span>
                   <span className="emp-common-stats">
-                    <span className={`stat-val ${statValClass(cs.stamina)}`}>
-                      체력{cs.stamina >= 0 ? '+' : ''}{cs.stamina}
-                    </span>
-                    <span className={`stat-val ${statValClass(cs.communication)}`}>
-                      소통{cs.communication >= 0 ? '+' : ''}{cs.communication}
-                    </span>
-                    <span className={`stat-val ${statValClass(cs.mental)}`}>
-                      멘탈{cs.mental >= 0 ? '+' : ''}{cs.mental}
-                    </span>
+                    <HoverInfo {...getCommonStatGuide('stamina')}>
+                      <span className={`stat-val ${statValClass(cs.stamina)}`}>
+                        체력{cs.stamina >= 0 ? '+' : ''}{cs.stamina}
+                      </span>
+                    </HoverInfo>
+                    <HoverInfo {...getCommonStatGuide('communication')}>
+                      <span className={`stat-val ${statValClass(cs.communication)}`}>
+                        소통{cs.communication >= 0 ? '+' : ''}{cs.communication}
+                      </span>
+                    </HoverInfo>
+                    <HoverInfo {...getCommonStatGuide('mental')}>
+                      <span className={`stat-val ${statValClass(cs.mental)}`}>
+                        멘탈{cs.mental >= 0 ? '+' : ''}{cs.mental}
+                      </span>
+                    </HoverInfo>
                   </span>
                 </div>
                 <div className="assignment-emp-slot-row">

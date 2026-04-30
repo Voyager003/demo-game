@@ -1,4 +1,5 @@
 import type { CEO } from './ceo';
+import type { CompanyStageState } from './company-stage';
 import type { Employee } from './employee';
 import type { Project } from './project';
 import type { LogEntry, PendingEvent } from './event';
@@ -16,7 +17,40 @@ export type ActionType =
   | 'adjustSalary'
   | 'signContract'
   | 'changeAssignment'
-  | 'orderOvertime';
+  | 'orderOvertime'
+  | 'startInvestmentRound';
+
+export type InvestmentStatus = 'idle' | 'underReview' | 'cooldown';
+
+export interface PendingInvestmentResult {
+  success: boolean;
+  deterministicScore: number;
+  successProbability: number;
+  capitalDelta: number;
+  companyRatingDelta: number;
+  employeeLoyaltyDelta: number;
+  employeeGrowthRateDelta: number;
+  summary: string[];
+}
+
+export interface InvestmentState {
+  status: InvestmentStatus;
+  reviewEndsOnTurn: number | null;
+  cooldownEndsOnTurn: number | null;
+  pendingResult: PendingInvestmentResult | null;
+  attemptCount: number;
+}
+
+export interface OrganizationChemistryState {
+  teamChem: number;
+  pairChem: Record<string, number>;
+  recentTensions: string[];
+  cultureHints: string[];
+}
+
+export interface OrganizationState {
+  chemistry: OrganizationChemistryState;
+}
 
 export interface FatigueState {
   current: number;
@@ -34,6 +68,7 @@ export interface GameState {
 
   // 경제
   capital: number; // 단위: 만원
+  companyRating: number; // 0~100
 
   // 피로도
   fatigue: FatigueState;
@@ -50,6 +85,9 @@ export interface GameState {
   // 이벤트
   eventLog: LogEntry[];
   pendingEvents: PendingEvent[];
+  investment: InvestmentState;
+  organization: OrganizationState;
+  companyStage: CompanyStageState;
 
   // 게임 상태
   gameStatus: GameStatus;
