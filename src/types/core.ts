@@ -1,4 +1,5 @@
 import type { CEO } from './ceo';
+import type { CompanyStageState } from './company-stage';
 import type { Employee } from './employee';
 import type { Project } from './project';
 import type { LogEntry, PendingEvent } from './event';
@@ -40,6 +41,17 @@ export interface InvestmentState {
   attemptCount: number;
 }
 
+export interface OrganizationChemistryState {
+  teamChem: number;
+  pairChem: Record<string, number>;
+  recentTensions: string[];
+  cultureHints: string[];
+}
+
+export interface OrganizationState {
+  chemistry: OrganizationChemistryState;
+}
+
 export interface FatigueState {
   current: number;
   max: number;
@@ -74,6 +86,8 @@ export interface GameState {
   eventLog: LogEntry[];
   pendingEvents: PendingEvent[];
   investment: InvestmentState;
+  organization: OrganizationState;
+  companyStage: CompanyStageState;
 
   // 게임 상태
   gameStatus: GameStatus;

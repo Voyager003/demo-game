@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { getCommonStatGuide, getSpecialistStatGuide } from '../../constants/statGuides';
 import { useGameStore } from '../../store/gameStore';
 import { DOMAIN_LABELS, DOMAIN_DESCRIPTIONS, DOMAIN_INITIAL_STATS } from '../../constants/domainStats';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
@@ -68,19 +69,21 @@ function FoundingMemberCard({
             label={DEV_STAT_LABELS[key] ?? key}
             value={val}
             max={10}
+            tooltip={getSpecialistStatGuide('developer', key)}
           />
         ))}
         <div className="spec-sum">전문 스탯 합계: {specSum}</div>
       </div>
 
       <div className="founding-common">
-        {(['stamina', 'communication', 'mental'] as const).map((key) => (
+        {(['stamina', 'communication', 'mental', 'growthRate', 'loyalty'] as const).map((key) => (
           <StatBar
             key={key}
             label={COMMON_LABELS[key]}
             value={candidate.commonStats[key]}
             min={-1}
             max={5}
+            tooltip={getCommonStatGuide(key)}
           />
         ))}
         <div className="founding-concurrent">
@@ -199,7 +202,8 @@ export function SetupScreen() {
 
         <div className="founding-notice">
           창업 멤버는 <strong>수습 없이 정규직</strong>으로 시작하며, 모든 특성이 공개됩니다.
-          충성도 +2 보너스가 적용됩니다.
+          충성도 +2 보너스가 적용됩니다. 각 능력치 위에 마우스를 올리면
+          현재 외주 진행, 주수입원 운영, 성장에 어떤 영향을 미치는지 확인할 수 있습니다.
         </div>
 
         <div className="founding-candidates">

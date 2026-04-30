@@ -45,7 +45,7 @@ class StubIdGenerator implements IdGenerator {
 describe('domain factories', () => {
   it('creates employees through injected id and random providers', () => {
     const random = new StubRandomSource(
-      [4, 4, 5, 4, 5, 1, 2, 3, 0, 1, 4100, 2],
+      [4100, 2],
       [1, 2],
     );
     const ids = new StubIdGenerator(['emp-1']);
@@ -61,7 +61,16 @@ describe('domain factories', () => {
       salary: 4100,
       maxConcurrentProjects: 2,
       hiredOnTurn: 7,
+      commonStats: expect.objectContaining({ loyalty: 0 }),
     });
+    expect(Object.values(candidate.specialistStats).reduce((sum, value) => sum + value, 0)).toBe(25);
+    expect(
+      candidate.commonStats.stamina
+      + candidate.commonStats.communication
+      + candidate.commonStats.mental
+      + candidate.commonStats.growthRate
+      + candidate.commonStats.loyalty,
+    ).toBe(4);
   });
 
   it('creates projects through injected id and random providers', () => {

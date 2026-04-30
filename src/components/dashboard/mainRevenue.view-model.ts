@@ -1,4 +1,5 @@
 import { EconomyLedger } from '../../domain/economy';
+import { defaultCompanyStagePressurePolicy } from '../../domain/policies/company-stage-policies';
 import type { GameState } from '../../types/core';
 import type { Employee } from '../../types/employee';
 import type { Project } from '../../types/project';
@@ -36,7 +37,13 @@ export function buildMainRevenueViewModel(state: GameState): MainRevenueViewMode
   if (!mainProject) return null;
 
   const baseRevenue = mainProject.monthlyRevenue;
-  const effectiveRevenue = EconomyLedger.effectiveRecurringRevenue(state.activeProjects, state.employees);
+  const stagePressure = defaultCompanyStagePressurePolicy.evaluate(state);
+  const effectiveRevenue = EconomyLedger.effectiveRecurringRevenue(
+    state.activeProjects,
+    state.employees,
+    state.organization.chemistry.teamChem,
+    stagePressure.recurringRevenueEffects,
+  );
   const revenueRatio = baseRevenue > 0 ? Math.round((effectiveRevenue / baseRevenue) * 100) : 0;
   const assignedEmployees = state.employees.filter((employee) =>
     mainProject.assignedEmployeeIds.includes(employee.id),
@@ -68,7 +75,7 @@ export function buildMainRevenueViewModel(state: GameState): MainRevenueViewMode
       .filter((employee) => !mainProject.assignedEmployeeIds.includes(employee.id))
       .map((employee) => employee.name),
     avgCommunication,
-    chemBonus: Math.round(avgCommunication * 3),
+    chemBonus: (state.organization.chemistry.teamChem - 50) + Math.round(avgCommunication * 3),
   };
 }
 

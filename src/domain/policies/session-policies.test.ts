@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { EconomyLedger } from '../economy';
 import { testEmployee, testGameState, testProject } from '../../test/fixtures';
 import type { IdGenerator } from '../generation';
 import {
   CrisisPolicy,
+  MonthlySettlementPolicy,
   PendingEventFactory,
 } from './session-policies';
 
@@ -115,5 +117,44 @@ describe('CrisisPolicy', () => {
     expect(transition.gameStatus).toBe('crisis');
     expect(transition.crisisGraceTurnsLeft).toBe(8);
     expect(transition.logs[0]?.message).toContain('위기 상태 진입');
+  });
+});
+
+describe('MonthlySettlementPolicy', () => {
+  it('applies company stage operating overhead during monthly settlement', () => {
+    const policy = new MonthlySettlementPolicy();
+    const employee = testEmployee({ salary: 4800 });
+    const state = testGameState({
+      turn: 4,
+      capital: 2000,
+      employees: [employee],
+      companyStage: {
+        currentStage: 'startup',
+        highestStage: 'startup',
+        lastPromotedTurn: 8,
+        nextStagePreview: { stage: 'scaleUp', stageLabel: '스케일업', requirements: [] },
+      },
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 300,
+          assignedEmployeeIds: [employee.id],
+        }),
+      ],
+    });
+
+    const base = policy.apply(state);
+    const transition = policy.apply(state, {
+      operatingCostPercent: 0.25,
+    });
+
+    expect(base.recurringRevenue).toBe(transition.recurringRevenue);
+    expect(base.capital - transition.capital).toBe(
+      EconomyLedger.monthlyOperatingCosts(1, 0.25) - EconomyLedger.monthlyOperatingCosts(1),
+    );
+    expect(transition.recurringRevenue).toBeGreaterThan(0);
   });
 });

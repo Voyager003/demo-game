@@ -93,9 +93,24 @@ function AssignmentModalContent({ projectId }: { projectId: string }) {
 
   const contractEstimate = isOwnedProduct
     ? null
-    : buildAssignmentEstimate(project, selectedEmployees, state.turn);
+    : buildAssignmentEstimate(
+        project,
+        selectedEmployees,
+        state.turn,
+        state.companyStage,
+        state.activeProjects,
+        state.employees,
+        state.organization.chemistry.teamChem,
+      );
   const mainRevenueEstimate = isOwnedProduct
-    ? buildMainRevenueEstimate(projectId, selectedIds, state.activeProjects, state.employees)
+    ? buildMainRevenueEstimate(
+        projectId,
+        selectedIds,
+        state.activeProjects,
+        state.employees,
+        state.organization.chemistry.teamChem,
+        state.companyStage,
+      )
     : null;
 
   const toggle = (emp: { id: string; maxConcurrentProjects: number }) => {

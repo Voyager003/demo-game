@@ -5,6 +5,7 @@ import { EmployeeRoster } from '../employee';
 import { ProjectPortfolio } from '../project';
 import type { EndingGrade, GameState, GameStatus } from '../../types/core';
 import type { Employee } from '../../types/employee';
+import type { LayerEffect } from '../../types/layer';
 import type { LogEntry, PendingEvent } from '../../types/event';
 import type { Project } from '../../types/project';
 import type { LayerTraceInput } from '../logging';
@@ -29,6 +30,7 @@ export interface SettlementTransition {
   capital: number;
   activeProjects: Project[];
   logs: SessionLogSpec[];
+  recurringRevenue: number;
 }
 
 export interface EventResolution {
@@ -219,12 +221,20 @@ export class CrisisPolicy {
 }
 
 export class MonthlySettlementPolicy {
-  apply(state: Pick<GameState, 'turn' | 'capital' | 'activeProjects' | 'employees'>): SettlementTransition {
+  apply(
+    state: Pick<GameState, 'turn' | 'capital' | 'activeProjects' | 'employees' | 'organization' | 'companyStage'>,
+    options: {
+      recurringRevenueEffects?: LayerEffect[];
+      operatingCostPercent?: number;
+      pressureLog?: SessionLogSpec | null;
+    } = {},
+  ): SettlementTransition {
     if (state.turn % 4 !== 0) {
       return {
         capital: state.capital,
         activeProjects: state.activeProjects,
         logs: [],
+        recurringRevenue: 0,
       };
     }
 
@@ -233,11 +243,16 @@ export class MonthlySettlementPolicy {
     const revenueResolution = resolveEconomyDeterministicMetrics(
       state.activeProjects,
       state.employees,
+      state.organization.chemistry.teamChem,
+      options.recurringRevenueEffects ?? [],
     );
     const baseRevenue = revenueResolution.baseRevenue;
     const recurringRevenue = revenueResolution.recurringRevenue.finalValue;
     const salaries = EconomyLedger.monthlySalaries(state.employees);
-    const operating = EconomyLedger.monthlyOperatingCosts(state.employees.length);
+    const operating = EconomyLedger.monthlyOperatingCosts(
+      state.employees.length,
+      options.operatingCostPercent ?? 0,
+    );
 
     if (recurringRevenue > 0) {
       capital += recurringRevenue;
@@ -264,6 +279,10 @@ export class MonthlySettlementPolicy {
     }
 
     capital -= salaries + operating;
+
+    if (options.pressureLog) {
+      logs.push(options.pressureLog);
+    }
     logs.push({
       message: `인건비 차감: -${salaries.toLocaleString()}만원`,
       source: 'GameSession.applyWeeklySettlement',
@@ -311,6 +330,7 @@ export class MonthlySettlementPolicy {
       capital,
       activeProjects,
       logs,
+      recurringRevenue,
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { Employee } from '../types/employee';
+import type { LayerEffect } from '../types/layer';
 import type { Project } from '../types/project';
 import { resolveEconomyDeterministicMetrics } from './layers/deterministic-layer';
 import {
@@ -12,12 +13,13 @@ export class EconomyLedger {
     return employees.reduce((sum, employee) => sum + Math.round(employee.salary / 12), 0);
   }
 
-  static monthlyOperatingCosts(employeeCount: number): number {
-    return DEFAULT_OPERATING_COST_POLICY.monthlyCost(employeeCount);
+  static monthlyOperatingCosts(employeeCount: number, operatingCostPercent = 0): number {
+    const base = DEFAULT_OPERATING_COST_POLICY.monthlyCost(employeeCount);
+    return Math.round(base * (1 + operatingCostPercent));
   }
 
-  static monthlyBurn(employees: Employee[]): number {
-    return this.monthlySalaries(employees) + this.monthlyOperatingCosts(employees.length);
+  static monthlyBurn(employees: Employee[], operatingCostPercent = 0): number {
+    return this.monthlySalaries(employees) + this.monthlyOperatingCosts(employees.length, operatingCostPercent);
   }
 
   static monthlyRecurringRevenue(projects: Project[]): number {
@@ -27,13 +29,25 @@ export class EconomyLedger {
     }, 0);
   }
 
-  static effectiveRecurringRevenue(projects: Project[], employees: Employee[]): number {
-    return resolveEconomyDeterministicMetrics(projects, employees).recurringRevenue.finalValue;
+  static effectiveRecurringRevenue(
+    projects: Project[],
+    employees: Employee[],
+    teamChem = 50,
+    externalEffects: LayerEffect[] = [],
+  ): number {
+    return resolveEconomyDeterministicMetrics(projects, employees, teamChem, externalEffects).recurringRevenue.finalValue;
   }
 
   // effectiveRecurringRevenue 기반의 실효 순현금흐름
-  static effectiveMonthlyNetBurn(employees: Employee[], projects: Project[]): number {
-    return this.monthlyBurn(employees) - this.effectiveRecurringRevenue(projects, employees);
+  static effectiveMonthlyNetBurn(
+    employees: Employee[],
+    projects: Project[],
+    teamChem = 50,
+    externalEffects: LayerEffect[] = [],
+    operatingCostPercent = 0,
+  ): number {
+    return this.monthlyBurn(employees, operatingCostPercent)
+      - this.effectiveRecurringRevenue(projects, employees, teamChem, externalEffects);
   }
 
   static monthlyNetBurn(employees: Employee[], projects: Project[]): number {

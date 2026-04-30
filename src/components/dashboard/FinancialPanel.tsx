@@ -1,15 +1,37 @@
 import { useGameStore } from '../../store/gameStore';
 import { EconomyLedger } from '../../domain';
+import {
+  companyStageLabel,
+  defaultCompanyStagePressurePolicy,
+} from '../../domain/policies/company-stage-policies';
 
 export function FinancialPanel() {
   const state = useGameStore((s) => s.state);
   if (!state) return null;
 
+  const stagePressure = defaultCompanyStagePressurePolicy.evaluate(state);
   const salaries = EconomyLedger.monthlySalaries(state.employees);
-  const operating = EconomyLedger.monthlyOperatingCosts(state.employees.length);
-  const monthlyBurn = EconomyLedger.monthlyBurn(state.employees);
-  const recurringRevenue = EconomyLedger.effectiveRecurringRevenue(state.activeProjects, state.employees);
-  const monthlyNetBurn = EconomyLedger.effectiveMonthlyNetBurn(state.employees, state.activeProjects);
+  const operating = EconomyLedger.monthlyOperatingCosts(
+    state.employees.length,
+    stagePressure.profile.operatingCostPercent,
+  );
+  const monthlyBurn = EconomyLedger.monthlyBurn(
+    state.employees,
+    stagePressure.profile.operatingCostPercent,
+  );
+  const recurringRevenue = EconomyLedger.effectiveRecurringRevenue(
+    state.activeProjects,
+    state.employees,
+    state.organization.chemistry.teamChem,
+    stagePressure.recurringRevenueEffects,
+  );
+  const monthlyNetBurn = EconomyLedger.effectiveMonthlyNetBurn(
+    state.employees,
+    state.activeProjects,
+    state.organization.chemistry.teamChem,
+    stagePressure.recurringRevenueEffects,
+    stagePressure.profile.operatingCostPercent,
+  );
   const runway = EconomyLedger.runwayInTurns(state.capital, monthlyNetBurn);
 
   const pendingIncome = state.activeProjects
@@ -34,6 +56,7 @@ export function FinancialPanel() {
   return (
     <div className="panel financial-panel">
       <h3 className="panel-title">재무 현황</h3>
+      <p className="muted">회사 단계: {companyStageLabel(state.companyStage.currentStage)}</p>
 
       <div className="stat-row primary">
         <span>자본 잔액</span>
@@ -55,6 +78,12 @@ export function FinancialPanel() {
           <span>운영비 (월)</span>
           <span className="stat-value danger">-{operating.toLocaleString()}만원</span>
         </div>
+        {stagePressure.profile.operatingCostPercent > 0 && (
+          <div className="stat-row sub muted">
+            <span>단계 오버헤드</span>
+            <span>+{Math.round(stagePressure.profile.operatingCostPercent * 100)}%</span>
+          </div>
+        )}
         <div className="fin-section-total">
           <span>총 지출</span>
           <span className="stat-value danger">-{monthlyBurn.toLocaleString()}만원</span>
@@ -133,6 +162,12 @@ export function FinancialPanel() {
       {state.gameStatus === 'crisis' && (
         <div className="crisis-bar">
           위기 유예: {state.crisisGraceTurnsLeft}턴 남음
+        </div>
+      )}
+
+      {stagePressure.profile.reasons.length > 0 && (
+        <div className="crisis-bar warning">
+          운영 압박: {stagePressure.profile.reasons.join(', ')}
         </div>
       )}
     </div>

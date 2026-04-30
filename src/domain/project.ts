@@ -10,6 +10,7 @@ import {
 } from './policies/project-policies';
 import type { Domain } from '../types/ceo';
 import type { Employee } from '../types/employee';
+import type { LayerEffect } from '../types/layer';
 import type { Project } from '../types/project';
 import type { LayerTraceInput } from './logging';
 
@@ -26,6 +27,11 @@ export interface ProjectProgressResult {
   logs: ProjectProgressLog[];
 }
 
+export interface ProjectAdvanceContext {
+  teamChem?: number;
+  externalEffects?: LayerEffect[];
+}
+
 export interface ProjectProgressLog {
   message: string;
   source: string;
@@ -40,19 +46,30 @@ export function generateInitialProjects(count = 3): Project[] {
   return defaultProjectFactory.generateInitialProjects(count);
 }
 
-export function calculateProgressPerTurn(project: Project, assignedEmployees: Employee[]): number {
+export function calculateProgressPerTurn(
+  project: Project,
+  assignedEmployees: Employee[],
+  externalEffects: LayerEffect[] = [],
+): number {
   if (assignedEmployees.length === 0) return 0;
-  return resolveProjectDeterministicMetrics(project, assignedEmployees).progressPerTurn.finalValue;
+  return resolveProjectDeterministicMetrics(
+    project,
+    assignedEmployees,
+    undefined,
+    externalEffects,
+  ).progressPerTurn.finalValue;
 }
 
 export function estimateProjectCompletion(
   project: Project,
   selectedEmployees: Employee[],
   currentTurn: number,
+  externalEffects: LayerEffect[] = [],
 ): ProjectEstimate | null {
   const progressPerTurn = calculateProgressPerTurn(
     { ...project, assignedEmployeeIds: selectedEmployees.map((employee) => employee.id) },
     selectedEmployees,
+    externalEffects,
   );
   if (progressPerTurn <= 0) return null;
   const turnsLeft = Math.ceil((100 - project.progress) / progressPerTurn);
@@ -162,7 +179,7 @@ export class ProjectPortfolio {
     );
   }
 
-  advanceWeek(employees: Employee[]): ProjectProgressResult {
+  advanceWeek(employees: Employee[], context: ProjectAdvanceContext = {}): ProjectProgressResult {
     const logs: ProjectProgressLog[] = [];
     const completedProjects: Project[] = [];
     const overtimeEmployeeIds: string[] = [];
@@ -174,14 +191,24 @@ export class ProjectPortfolio {
       );
       if (project.overtimeActive) overtimeEmployeeIds.push(...project.assignedEmployeeIds);
 
-      const deterministicResolution = resolveProjectDeterministicMetrics(project, assigned);
+      const deterministicResolution = resolveProjectDeterministicMetrics(
+        project,
+        assigned,
+        context.teamChem,
+        context.externalEffects,
+      );
       const progressGain = deterministicResolution.progressPerTurn.finalValue;
       const turnsElapsed = project.turnsElapsed + 1;
       const progress = Math.min(100, project.progress + progressGain);
 
       if (progress >= 100) {
         const completedProject = { ...project, progress, turnsElapsed };
-        const completionResolution = resolveProjectDeterministicMetrics(completedProject, assigned);
+        const completionResolution = resolveProjectDeterministicMetrics(
+          completedProject,
+          assigned,
+          context.teamChem,
+          context.externalEffects,
+        );
         const completed = completeProject(
           completedProject,
           completionResolution.clientSatisfaction.finalValue,

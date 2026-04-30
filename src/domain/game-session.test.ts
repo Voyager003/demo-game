@@ -59,6 +59,8 @@ describe('GameSession', () => {
     expect(state.employees[0].projectAssignments).toEqual({ [state.activeProjects[0].id]: 100 });
     expect(state.eventLog).toHaveLength(3);
     expect(state.companyRating).toBe(20);
+    expect(state.companyStage.currentStage).toBe('solo');
+    expect(state.companyStage.nextStagePreview.stage).toBe('earlyTeam');
     expect(functionLogs.map((log) => log.functionName)).toEqual(['GameSession.startNewGame']);
   });
 
@@ -209,6 +211,42 @@ describe('GameSession', () => {
     expect(session.toState().activeProjects[0].assignedEmployeeIds).toEqual([]);
   });
 
+  it('blocks investment start when current company stage gate is not met', () => {
+    const session = new GameSession(testGameState({
+      companyStage: {
+        currentStage: 'startup',
+        highestStage: 'startup',
+        lastPromotedTurn: 8,
+        nextStagePreview: { stage: 'scaleUp', stageLabel: '스케일업', requirements: [] },
+      },
+      companyRating: 40,
+      organization: {
+        chemistry: {
+          teamChem: 40,
+          pairChem: {},
+          recentTensions: [],
+          cultureHints: [],
+        },
+      },
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 100,
+          assignedEmployeeIds: ['emp-1'],
+        }),
+      ],
+    }));
+
+    session.startInvestmentRound();
+    const state = session.toState();
+
+    expect(state.investment.status).toBe('idle');
+    expect(state.fatigue.current).toBe(9);
+  });
+
   it('updates assignments on projects and employee snapshots', () => {
     const project = testProject({ id: 'p', assignedEmployeeIds: [] });
     const employees = [
@@ -280,6 +318,34 @@ describe('GameSession', () => {
     const logs = session.drainFunctionLogs();
     expect(logs.some((log) => log.functionName === 'GameSession.applyWeeklySettlement')).toBe(true);
     expect(session.drainFunctionLogs()).toEqual([]);
+  });
+
+  it('promotes only one company stage per monthly settlement', () => {
+    const employees = Array.from({ length: 6 }, (_, index) => testEmployee({ id: `emp-${index}` }));
+    const session = new GameSession(testGameState({
+      turn: 4,
+      capital: 9000,
+      companyRating: 70,
+      employees,
+      activeProjects: [
+        testProject({
+          id: 'main',
+          kind: 'ownedProduct',
+          status: 'operating',
+          isMainRevenue: true,
+          monthlyRevenue: 400,
+          assignedEmployeeIds: employees.map((employee) => employee.id),
+        }),
+      ],
+    }));
+
+    session.endTurn();
+    const state = session.toState();
+
+    expect(state.phase).toBe(5);
+    expect(state.companyStage.currentStage).toBe('earlyTeam');
+    expect(state.companyStage.highestStage).toBe('earlyTeam');
+    expect(state.eventLog.some((log) => log.message.includes('회사 성장 단계 상승'))).toBe(true);
   });
 
   it('enters crisis, counts down grace, ends, and recovers when capital is restored', () => {

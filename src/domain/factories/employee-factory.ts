@@ -5,6 +5,7 @@ import type {
 import type { CommonStats, DesignerStats, DeveloperStats, PmStats, SpecialistStats } from '../../types/employee';
 import type { IdGenerator, RandomSource } from '../generation';
 import { MathRandomSource, TimestampIdGenerator } from '../generation';
+import { TraitRegistry } from '../traits';
 
 const SURNAMES = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임', '한', '오', '서', '신', '권', '황', '안', '송', '류', '전'] as const;
 const GIVEN_NAMES = ['민준', '서윤', '도현', '지우', '수빈', '하은', '예진', '준서', '민서', '채원', '시우', '유나', '지훈', '소연', '재원', '나은', '성민', '하늘', '태영', '보람'] as const;
@@ -15,9 +16,19 @@ const SALARY_RANGES: Record<Role, [number, number]> = {
   pm: [3000, 5500],
 };
 
+const SPECIALIST_TOTAL_BY_TIER: Record<number, number> = {
+  0: 15,
+  1: 20,
+  2: 25,
+  3: 30,
+};
+
+const COMMON_TOTAL_BUDGET = 4;
+
 export class EmployeeFactory {
   private readonly random: RandomSource;
   private readonly ids: IdGenerator;
+  private readonly traitRegistry: TraitRegistry;
 
   constructor(
     random: RandomSource = new MathRandomSource(),
@@ -25,6 +36,7 @@ export class EmployeeFactory {
   ) {
     this.random = random;
     this.ids = ids;
+    this.traitRegistry = new TraitRegistry(random);
   }
 
   createCandidate(role: Role, tier: number, currentTurn: number): Employee {
@@ -42,6 +54,7 @@ export class EmployeeFactory {
       maxConcurrentProjects: this.random.nextInt(1, 3),
       projectAssignments: {},
       hiredOnTurn: currentTurn,
+      traitProfile: this.traitRegistry.createProfile(),
     };
   }
 
@@ -69,12 +82,21 @@ export class EmployeeFactory {
   }
 
   private generateCommonStats(): CommonStats {
+    const distributed = this.distributeStatBudget(
+      {
+        stamina: { min: -1, max: 3 },
+        communication: { min: -1, max: 3 },
+        mental: { min: -1, max: 3 },
+        growthRate: { min: 0, max: 3 },
+      },
+      COMMON_TOTAL_BUDGET,
+    );
     return {
-      stamina: this.random.nextInt(-1, 3),
-      communication: this.random.nextInt(-1, 3),
-      mental: this.random.nextInt(-1, 3),
-      growthRate: this.random.nextInt(0, 3),
-      loyalty: this.random.nextInt(0, 3),
+      stamina: distributed.stamina,
+      communication: distributed.communication,
+      mental: distributed.mental,
+      growthRate: distributed.growthRate,
+      loyalty: 0,
     };
   }
 
@@ -87,37 +109,70 @@ export class EmployeeFactory {
   private generateDeveloperStats(tier: number): DeveloperStats {
     const base = 2 + tier;
     const max = 4 + tier;
-    return {
-      codingSpeed: this.random.nextInt(base, max),
-      codeQuality: this.random.nextInt(base, max),
-      problemSolving: this.random.nextInt(base, max),
-      techBreadth: this.random.nextInt(Math.max(1, base - 1), max),
-      securitySense: this.random.nextInt(Math.max(1, base - 1), max),
-    };
+    const distributed = this.distributeStatBudget(
+      {
+        codingSpeed: { min: base, max },
+        codeQuality: { min: base, max },
+        problemSolving: { min: base, max },
+        techBreadth: { min: Math.max(1, base - 1), max },
+        securitySense: { min: Math.max(1, base - 1), max },
+      },
+      SPECIALIST_TOTAL_BY_TIER[tier] ?? SPECIALIST_TOTAL_BY_TIER[3],
+    );
+    return distributed;
   }
 
   private generateDesignerStats(tier: number): DesignerStats {
     const base = 2 + tier;
     const max = 4 + tier;
-    return {
-      uiSense: this.random.nextInt(base, max),
-      uxThinking: this.random.nextInt(base, max),
-      workSpeed: this.random.nextInt(base, max),
-      brandingSense: this.random.nextInt(Math.max(1, base - 1), max),
-      prototyping: this.random.nextInt(Math.max(1, base - 1), max),
-    };
+    const distributed = this.distributeStatBudget(
+      {
+        uiSense: { min: base, max },
+        uxThinking: { min: base, max },
+        workSpeed: { min: base, max },
+        brandingSense: { min: Math.max(1, base - 1), max },
+        prototyping: { min: Math.max(1, base - 1), max },
+      },
+      SPECIALIST_TOTAL_BY_TIER[tier] ?? SPECIALIST_TOTAL_BY_TIER[3],
+    );
+    return distributed;
   }
 
   private generatePmStats(tier: number): PmStats {
     const base = 2 + tier;
     const max = 4 + tier;
-    return {
-      scheduleManagement: this.random.nextInt(base, max),
-      requirementAnalysis: this.random.nextInt(base, max),
-      riskDetection: this.random.nextInt(Math.max(1, base - 1), max),
-      clientManagement: this.random.nextInt(base, max),
-      teamCoordination: this.random.nextInt(Math.max(1, base - 1), max),
-    };
+    const distributed = this.distributeStatBudget(
+      {
+        scheduleManagement: { min: base, max },
+        requirementAnalysis: { min: base, max },
+        riskDetection: { min: Math.max(1, base - 1), max },
+        clientManagement: { min: base, max },
+        teamCoordination: { min: Math.max(1, base - 1), max },
+      },
+      SPECIALIST_TOTAL_BY_TIER[tier] ?? SPECIALIST_TOTAL_BY_TIER[3],
+    );
+    return distributed;
+  }
+
+  private distributeStatBudget<T extends string>(
+    bounds: Record<T, { min: number; max: number }>,
+    targetTotal: number,
+  ): Record<T, number> {
+    const keys = Object.keys(bounds) as T[];
+    const values = Object.fromEntries(
+      keys.map((key) => [key, bounds[key].min]),
+    ) as Record<T, number>;
+    let remaining = targetTotal - keys.reduce((sum, key) => sum + bounds[key].min, 0);
+
+    while (remaining > 0) {
+      const candidates = keys.filter((key) => values[key] < bounds[key].max);
+      if (candidates.length === 0) break;
+      const key = this.random.pick(candidates);
+      values[key] += 1;
+      remaining -= 1;
+    }
+
+    return values;
   }
 }
 

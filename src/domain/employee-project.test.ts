@@ -104,12 +104,26 @@ describe('employee domain', () => {
   it('generates resumes in requested counts and valid ranges', () => {
     const resumes = EmployeeRoster.generateResumes(5, 90, 7);
     const founders = EmployeeRoster.generateFoundingCandidates(3, 90, 7);
+    const specialistTotals = resumes.map((employee) =>
+      Object.values(employee.specialistStats).reduce((sum, value) => sum + value, 0),
+    );
+    const commonTotals = resumes.map((employee) =>
+      employee.commonStats.stamina
+      + employee.commonStats.communication
+      + employee.commonStats.mental
+      + employee.commonStats.growthRate
+      + employee.commonStats.loyalty,
+    );
 
     expect(resumes).toHaveLength(5);
     expect(founders).toHaveLength(3);
     expect(founders.every((employee) => employee.role === 'developer')).toBe(true);
     expect(resumes.every((employee) => employee.hiredOnTurn === 7)).toBe(true);
     expect(resumes.every((employee) => employee.maxConcurrentProjects >= 1 && employee.maxConcurrentProjects <= 3)).toBe(true);
+    expect(resumes.every((employee) => employee.commonStats.loyalty === 0)).toBe(true);
+    expect(founders.every((employee) => employee.commonStats.loyalty === 0)).toBe(true);
+    expect(new Set(specialistTotals)).toEqual(new Set([30]));
+    expect(new Set(commonTotals)).toEqual(new Set([4]));
   });
 
   it('updates roster assignments, removals, weekly ticks, and overtime targets immutably', () => {

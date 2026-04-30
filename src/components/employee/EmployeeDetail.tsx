@@ -1,6 +1,9 @@
 import { useGameStore } from '../../store/gameStore';
 import { useUIStore } from '../../store/uiStore';
 import { getCommonStatGuide, getSpecialistStatGuide } from '../../constants/statGuides';
+import { getTraitGuide, getTraitHintLabel } from '../../constants/traitGuides';
+import { getRevealedTraitDefinitions } from '../../domain/traits';
+import { HoverInfo } from '../shared/HoverInfo';
 import { Modal } from '../shared/Modal';
 import { SimpleStatBar, StatBar } from '../shared/StatBar';
 import { ProjectSlotBar } from '../shared/ProjectSlotBar';
@@ -57,6 +60,7 @@ export function EmployeeDetail() {
 
   const specLabels = SPECIALIST_LABELS[emp.role] ?? {};
   const specEntries = Object.entries(emp.specialistStats);
+  const revealedTraits = getRevealedTraitDefinitions(emp.traitProfile);
 
   const handleFire = () => {
     fireEmployee(emp.id);
@@ -106,6 +110,27 @@ export function EmployeeDetail() {
             <div className="detail-slot-row">
               <span className="detail-slot-label">동시 투입가능 프로젝트</span>
               <ProjectSlotBar max={emp.maxConcurrentProjects} />
+            </div>
+          </div>
+
+          <div className="detail-section">
+            <h4>특성</h4>
+            <div className="trait-chip-row">
+              {revealedTraits.map((trait) => (
+                <HoverInfo
+                  key={trait.id}
+                  label={getTraitGuide(trait.id).label}
+                  description={getTraitGuide(trait.id).description}
+                  deterministicImpact={getTraitGuide(trait.id).deterministicImpact}
+                >
+                  <span className="trait-chip revealed">{trait.label}</span>
+                </HoverInfo>
+              ))}
+              {emp.traitProfile.reveal.hints.map((hint) => (
+                <span key={`${hint.category}:${hint.text}`} className="trait-chip hidden">
+                  {getTraitHintLabel(hint)}
+                </span>
+              ))}
             </div>
           </div>
 

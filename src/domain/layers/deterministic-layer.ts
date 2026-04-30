@@ -10,10 +10,13 @@ import {
   defaultProbationPenaltyPolicy,
   defaultTeamProductivityPolicy,
 } from '../policies/deterministic-policies';
+import { defaultTraitDeterministicPolicy } from '../policies/trait-deterministic-policies';
 
 export interface ProjectDeterministicContext {
   project: Project;
   assignedEmployees: Employee[];
+  teamChem?: number;
+  externalEffects?: LayerEffect[];
 }
 
 export interface ProjectDeterministicResolution {
@@ -25,6 +28,8 @@ export interface ProjectDeterministicResolution {
 export interface EconomyDeterministicContext {
   projects: Project[];
   employees: Employee[];
+  teamChem?: number;
+  externalEffects?: LayerEffect[];
 }
 
 export interface EconomyDeterministicResolution {
@@ -108,6 +113,12 @@ const projectRules: LayerRule<ProjectDeterministicContext>[] = [
       sourceName: project.name,
     }],
   },
+  {
+    id: 'project.traits',
+    description: '직원 특성이 프로젝트 진척도와 만족도에 보정으로 적용됩니다.',
+    evaluate: ({ project, assignedEmployees }) =>
+      defaultTraitDeterministicPolicy.projectEffects(project, assignedEmployees),
+  },
 ];
 
 const economyRules: LayerRule<EconomyDeterministicContext>[] = [
@@ -162,6 +173,24 @@ const economyRules: LayerRule<EconomyDeterministicContext>[] = [
       return defaultEmployeeContributionRegistry.mainRevenueSpecialistEffects(mainProject, assignedEmployees);
     },
   },
+  {
+    id: 'economy.recurring-revenue.traits',
+    description: '주수입원 배정 직원 특성과 팀 케미가 실효 매출에 반영됩니다.',
+    evaluate: (context) => {
+      const mainProject = defaultMainRevenueOperationPolicy.findMainRevenueProject(context.projects);
+      if (!mainProject) return [];
+      const assignedEmployees = defaultMainRevenueOperationPolicy.assignedEmployees(
+        context.projects,
+        context.employees,
+        mainProject,
+      );
+      return defaultTraitDeterministicPolicy.recurringRevenueEffects(
+        mainProject,
+        assignedEmployees.map(({ employee }) => employee),
+        context.teamChem ?? 50,
+      );
+    },
+  },
 ];
 
 export class DeterministicLayer extends BaseSimulationLayer<
@@ -171,7 +200,10 @@ export class DeterministicLayer extends BaseSimulationLayer<
   readonly kind = 'deterministic' as const;
 
   evaluate(context: ProjectDeterministicContext): LayerEffect[] {
-    return projectRules.flatMap((rule) => rule.evaluate(context));
+    return [
+      ...projectRules.flatMap((rule) => rule.evaluate(context)),
+      ...(context.externalEffects ?? []),
+    ];
   }
 
   resolve(context: ProjectDeterministicContext): ProjectDeterministicResolution {
@@ -210,7 +242,10 @@ export class DeterministicLayer extends BaseSimulationLayer<
   }
 
   evaluateEconomy(context: EconomyDeterministicContext): LayerEffect[] {
-    return economyRules.flatMap((rule) => rule.evaluate(context));
+    return [
+      ...economyRules.flatMap((rule) => rule.evaluate(context)),
+      ...(context.externalEffects ?? []),
+    ];
   }
 
   resolveEconomy(context: EconomyDeterministicContext): EconomyDeterministicResolution {
@@ -244,15 +279,19 @@ export const deterministicLayer = new DeterministicLayer();
 export function resolveProjectDeterministicMetrics(
   project: Project,
   assignedEmployees: Employee[],
+  teamChem?: number,
+  externalEffects?: LayerEffect[],
 ): ProjectDeterministicResolution {
-  return deterministicLayer.resolve({ project, assignedEmployees });
+  return deterministicLayer.resolve({ project, assignedEmployees, teamChem, externalEffects });
 }
 
 export function resolveEconomyDeterministicMetrics(
   projects: Project[],
   employees: Employee[],
+  teamChem?: number,
+  externalEffects?: LayerEffect[],
 ): EconomyDeterministicResolution {
-  return deterministicLayer.resolveEconomy({ projects, employees });
+  return deterministicLayer.resolveEconomy({ projects, employees, teamChem, externalEffects });
 }
 
 function projectInputs({ project, assignedEmployees }: ProjectDeterministicContext): string[] {

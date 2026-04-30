@@ -908,6 +908,29 @@ button {
 .resume-salary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .resume-stats, .resume-common { display: flex; flex-direction: column; }
 .spec-sum { font-size: var(--font-size-xs); color: var(--color-text-muted); text-align: right; margin-top: 4px; }
+.trait-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trait-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--color-border);
+}
+.trait-chip.revealed {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--color-text-primary);
+}
+.trait-chip.hidden {
+  background: rgba(148, 163, 184, 0.12);
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
 .hire-btn {
   align-self: flex-end;
   padding: var(--space-xs) var(--space-md);

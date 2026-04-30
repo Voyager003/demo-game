@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { ACTION_RULES, canPerformAction } from '../../domain';
+import {
+  companyStageLabel,
+  defaultCompanyStageInvestmentGatePolicy,
+} from '../../domain/policies/company-stage-policies';
 import type { ActionType } from '../../types/core';
 
 interface ActionButtonProps {
@@ -45,6 +49,10 @@ export function ActionMenu() {
   const hasActiveContractProject = state.activeProjects.some(
     (project) => project.status === 'active',
   );
+  const investmentGate = defaultCompanyStageInvestmentGatePolicy.isAllowed(state);
+  const investmentDisabled = !can('startInvestmentRound') || !investmentGate.allowed;
+  const stageLabel = companyStageLabel(state.companyStage.currentStage);
+  const nextStage = state.companyStage.nextStagePreview;
 
   return (
     <div className="action-menu">
@@ -155,15 +163,27 @@ export function ActionMenu() {
               }
               description="대표가 투자 심사를 시작합니다. 회사 평가와 실적, 비전이 성공 확률에 반영됩니다."
               onClick={startInvestmentRound}
-              disabled={!can('startInvestmentRound')}
+              disabled={investmentDisabled}
             />
+            {!investmentGate.allowed && (
+              <p className="info-text">
+                투자 게이트: {investmentGate.reasons.join(', ')}
+              </p>
+            )}
           </>
         )}
 
         {section === 'info' && (
           <div className="info-section">
             <p className="info-text">대시보드 열람, 직원 정보, 이벤트 로그 — 피로도 소모 없음.</p>
+            <p className="info-text">회사 단계: {stageLabel}</p>
             <p className="info-text">회사 평가: {state.companyRating}/100</p>
+            <p className="info-text">팀 케미: {state.organization.chemistry.teamChem}/100</p>
+            {nextStage.stageLabel && (
+              <p className="info-text">
+                다음 단계: {nextStage.stageLabel} · {nextStage.requirements.filter((requirement) => !requirement.met).length}개 조건 남음
+              </p>
+            )}
           </div>
         )}
       </div>

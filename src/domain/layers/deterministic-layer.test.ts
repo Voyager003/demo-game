@@ -218,10 +218,32 @@ describe('DeterministicLayer economy metrics', () => {
 });
 
 describe('ProbabilisticLayer shell', () => {
-  it('returns empty effects until probability rolls are implemented', () => {
+  it('aggregates probability effects through the shared modifier model', () => {
     const layer = new ProbabilisticLayer();
 
-    expect(layer.evaluate()).toEqual([]);
-    expect(layer.resolve()).toEqual({ effects: [] });
+    const effects = layer.evaluate({
+      metric: 'probability.employeeBurnout',
+      baseProbability: 0.1,
+      effects: [],
+      trace: {
+        rule: 'fixture',
+        trigger: 'fixture',
+        inputs: [],
+      },
+    });
+    const resolution = layer.resolve({
+      metric: 'probability.employeeBurnout',
+      baseProbability: 0.1,
+      effects: [],
+      trace: {
+        rule: 'fixture',
+        trigger: 'fixture',
+        inputs: [],
+      },
+    });
+
+    expect(effects).toEqual([]);
+    expect(resolution.effects).toEqual([]);
+    expect(resolution.probability?.finalValue).toBe(0.1);
   });
 });

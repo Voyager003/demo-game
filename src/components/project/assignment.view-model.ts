@@ -2,6 +2,10 @@ import { EconomyLedger } from '../../domain/economy';
 import { EmployeeRoster } from '../../domain/employee';
 import { employeeSpecialistTotal } from '../../domain/employee';
 import { estimateProjectCompletion, ProjectPortfolio, type ProjectEstimate } from '../../domain/project';
+import {
+  defaultCompanyStagePressurePolicy,
+} from '../../domain/policies/company-stage-policies';
+import type { CompanyStageState } from '../../types/company-stage';
 import type { Employee } from '../../types/employee';
 import type { Project } from '../../types/project';
 
@@ -19,8 +23,32 @@ export function buildAssignmentEstimate(
   project: Project,
   selectedEmployees: Employee[],
   currentTurn: number,
+  companyStage?: CompanyStageState,
+  allProjects: Project[] = [project],
+  allEmployees: Employee[] = selectedEmployees,
+  teamChem = 50,
 ): ProjectEstimate | null {
-  return estimateProjectCompletion(project, selectedEmployees, currentTurn);
+  const pressure = companyStage
+    ? defaultCompanyStagePressurePolicy.evaluate({
+        companyStage,
+        employees: allEmployees,
+        activeProjects: allProjects,
+        organization: {
+          chemistry: {
+            teamChem,
+            pairChem: {},
+            recentTensions: [],
+            cultureHints: [],
+          },
+        },
+      })
+    : null;
+  return estimateProjectCompletion(
+    project,
+    selectedEmployees,
+    currentTurn,
+    pressure?.projectEffects,
+  );
 }
 
 export interface MainRevenueEstimate {
@@ -34,6 +62,8 @@ export function buildMainRevenueEstimate(
   employeeIds: string[],
   projects: Project[],
   employees: Employee[],
+  teamChem = 50,
+  companyStage?: CompanyStageState,
 ): MainRevenueEstimate | null {
   const mainProject = projects.find((project) => project.id === projectId);
   if (!mainProject) return null;
@@ -45,7 +75,27 @@ export function buildMainRevenueEstimate(
   const simulatedEmployees = new EmployeeRoster(employees)
     .setProjectAssignments(projectId, employeeIds)
     .toSnapshots();
-  const effectiveRevenue = EconomyLedger.effectiveRecurringRevenue(simulatedProjects, simulatedEmployees);
+  const pressure = companyStage
+    ? defaultCompanyStagePressurePolicy.evaluate({
+        companyStage,
+        employees: simulatedEmployees,
+        activeProjects: simulatedProjects,
+        organization: {
+          chemistry: {
+            teamChem,
+            pairChem: {},
+            recentTensions: [],
+            cultureHints: [],
+          },
+        },
+      })
+    : null;
+  const effectiveRevenue = EconomyLedger.effectiveRecurringRevenue(
+    simulatedProjects,
+    simulatedEmployees,
+    teamChem,
+    pressure?.recurringRevenueEffects ?? [],
+  );
   if (effectiveRevenue <= 0) return null;
 
   const revenueRatio = mainProject.monthlyRevenue > 0
